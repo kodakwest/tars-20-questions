@@ -98,7 +98,7 @@ export function GameBoard({
   }, [answerYouThink, canAnswerYouThink]);
 
   return (
-    <div className="game-container relative z-0 mx-auto flex min-h-screen w-full max-w-5xl flex-col">
+    <div className="game-container relative z-0 mx-auto flex h-dvh w-full max-w-5xl flex-col">
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-800 bg-void/86 px-4 py-4 backdrop-blur sm:px-6">
         <TarsAvatar speaking={isSpeaking} />
         <div className="flex items-center gap-3">
@@ -161,114 +161,115 @@ export function GameBoard({
         )}
       </div>
 
-      {/* Fixed footer — always on screen */}
-      <footer className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-void/94 p-3 pb-safe backdrop-blur sm:p-4">
-        <div className="mx-auto max-w-5xl">
-        {mode === "you-think" ? (
-          <div className="mx-auto max-w-3xl">
-            {pendingFinalGuess ? (
-              <div className="rounded border border-signal/30 bg-slate-950/95 p-3">
-                <div className="mb-3 font-display text-sm font-semibold uppercase tracking-[0.16em] text-signal">
-                  Was I Right?
-                </div>
-                {showRevealInput ? (
-                  <form
-                    className="flex flex-col gap-2 sm:flex-row"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      handleIncorrectGuess();
-                    }}
-                  >
-                    <input
-                      value={actualAnswer}
-                      onChange={(event) => setActualAnswer(event.target.value)}
-                      disabled={isLoading}
-                      placeholder="What were you thinking of?"
-                      className="h-12 min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-signal"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isLoading || !canSubmitReveal}
-                      className="h-12 rounded bg-signal px-5 font-display font-semibold text-void transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
-                    >
-                      Reveal
-                    </button>
-                  </form>
-                ) : (
-                  <div className="flex gap-2">
+      {!result?.gameOver && (
+        <footer className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-void/94 p-3 pb-safe backdrop-blur sm:p-4">
+          <div className="mx-auto max-w-5xl">
+            {mode === "you-think" ? (
+              <div className="mx-auto max-w-3xl">
+                {pendingFinalGuess ? (
+                  <div className="rounded border border-signal/30 bg-slate-950/95 p-3">
+                    <div className="mb-3 font-display text-sm font-semibold uppercase tracking-[0.16em] text-signal">
+                      Was I Right?
+                    </div>
+                    {showRevealInput ? (
+                      <form
+                        className="flex flex-col gap-2 sm:flex-row"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          handleIncorrectGuess();
+                        }}
+                      >
+                        <input
+                          value={actualAnswer}
+                          onChange={(event) => setActualAnswer(event.target.value)}
+                          disabled={isLoading}
+                          placeholder="What were you thinking of?"
+                          className="h-12 min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-signal"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isLoading || !canSubmitReveal}
+                          className="h-12 rounded bg-signal px-5 font-display font-semibold text-void transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                        >
+                          Reveal
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCorrectGuess}
+                          disabled={isLoading}
+                          className="h-12 flex-1 rounded bg-signal font-display font-semibold text-void transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowRevealInput(true)}
+                          disabled={isLoading}
+                          className="h-12 flex-1 rounded border border-danger/60 bg-danger/10 font-display font-semibold text-rose-100 transition hover:bg-danger/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                        >
+                          No
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : youThinkStarted ? (
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
-                      onClick={handleCorrectGuess}
-                      disabled={isLoading}
-                      className="h-12 flex-1 rounded bg-signal font-display font-semibold text-void transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                      onClick={() => answerYouThink("Yes")}
+                      disabled={!canAnswerYouThink}
+                      className="min-h-11 flex-1 rounded bg-signal px-4 py-3 font-display font-semibold text-void transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
                     >
                       Yes
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowRevealInput(true)}
-                      disabled={isLoading}
-                      className="h-12 flex-1 rounded border border-danger/60 bg-danger/10 font-display font-semibold text-rose-100 transition hover:bg-danger/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                      onClick={() => answerYouThink("Kind Of")}
+                      disabled={!canAnswerYouThink}
+                      className="min-h-11 flex-1 rounded border border-warning/60 bg-warning/10 px-4 py-3 font-display font-semibold text-warning transition hover:bg-warning/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                    >
+                      Kind Of
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => answerYouThink("No")}
+                      disabled={!canAnswerYouThink}
+                      className="min-h-11 flex-1 rounded border border-danger/60 bg-danger/10 px-4 py-3 font-display font-semibold text-rose-100 transition hover:bg-danger/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
                     >
                       No
                     </button>
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startYouThinkQuestions}
+                    disabled={isLoading || Boolean(result?.gameOver)}
+                    className="h-12 w-full rounded bg-warning font-display font-semibold text-void transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                  >
+                    Ready
+                  </button>
                 )}
               </div>
-            ) : youThinkStarted ? (
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => answerYouThink("Yes")}
-                  disabled={!canAnswerYouThink}
-                  className="min-h-11 flex-1 rounded bg-signal px-4 py-3 font-display font-semibold text-void transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => answerYouThink("Kind Of")}
-                  disabled={!canAnswerYouThink}
-                  className="min-h-11 flex-1 rounded border border-warning/60 bg-warning/10 px-4 py-3 font-display font-semibold text-warning transition hover:bg-warning/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
-                >
-                  Kind Of
-                </button>
-                <button
-                  type="button"
-                  onClick={() => answerYouThink("No")}
-                  disabled={!canAnswerYouThink}
-                  className="min-h-11 flex-1 rounded border border-danger/60 bg-danger/10 px-4 py-3 font-display font-semibold text-rose-100 transition hover:bg-danger/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
-                >
-                  No
-                </button>
-              </div>
             ) : (
-              <button
-                type="button"
-                onClick={startYouThinkQuestions}
-                disabled={isLoading || Boolean(result?.gameOver)}
-                className="h-12 w-full rounded bg-warning font-display font-semibold text-void transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
-              >
-                Ready
-              </button>
+              <div className="mx-auto flex max-w-3xl gap-2">
+                <div className="min-w-0 flex-1">
+                  <QuestionInput
+                    disabled={disabled}
+                    onAsk={ask}
+                    listenTrigger={listenTrigger}
+                    voiceMode={voiceMode}
+                    onListeningChange={setIsListening}
+                  />
+                </div>
+                <GuessButton disabled={isLoading || Boolean(result?.gameOver)} onGuess={guess} />
+              </div>
             )}
           </div>
-        ) : (
-          <div className="mx-auto flex max-w-3xl gap-2">
-            <div className="min-w-0 flex-1">
-              <QuestionInput
-                disabled={disabled}
-                onAsk={ask}
-                listenTrigger={listenTrigger}
-                voiceMode={voiceMode}
-                onListeningChange={setIsListening}
-              />
-            </div>
-            <GuessButton disabled={isLoading || Boolean(result?.gameOver)} onGuess={guess} />
-          </div>
-        )}
-      </div>
-      </footer>
+        </footer>
+      )}
 
       {!result?.gameOver && (
         <div className="pointer-events-none fixed bottom-[calc(12rem+var(--safe-area-inset-bottom))] left-1/2 z-20 -translate-x-1/2 sm:bottom-24">
