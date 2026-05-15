@@ -59,6 +59,7 @@ const AI_THINKS_CHARACTERS = [
 
 const YOU_THINK_CATEGORIES = ["character", "object", "place"];
 const GRAPH_GUESS_THRESHOLD = 3;
+const MIN_GRAPH_QUESTIONS_BEFORE_GUESS = 10;
 
 type CharacterRow = {
   id: number;
@@ -266,8 +267,13 @@ Latest answer: ${latestAnswer || "Ready."}`;
     temperature: 0.8
   });
 
+  const text = extractText(response);
+  if (text) {
+    return { text };
+  }
+
   return {
-    text: extractText(response) || "Is it fictional? My probability net wants an easy warm-up.",
+    text: "Is it fictional? My probability net wants an easy warm-up.",
     attributeKey: "fictional"
   };
 }
@@ -306,13 +312,15 @@ ${historyText(session)}`;
 async function askGraphQuestion(env: Env, session: GameSession, latestAnswer?: string): Promise<GraphQuestionResult | null> {
   const candidates = await getGraphCandidates(env, session);
   if (candidates.length === 0) return null;
+  const answeredGraphQuestions = countAnsweredGraphQuestions(session);
+  const canGuess = answeredGraphQuestions >= MIN_GRAPH_QUESTIONS_BEFORE_GUESS;
 
-  if (candidates.length <= 1) {
+  if (canGuess && candidates.length <= 1) {
     const guess = await phraseGraphGuess(env, session, candidates[0]);
     return { text: guess, finalGuess: candidates[0].name };
   }
 
-  if (candidates.length <= GRAPH_GUESS_THRESHOLD) {
+  if (canGuess && candidates.length <= GRAPH_GUESS_THRESHOLD) {
     const guess = await guessYouThinkAnswer(env, session);
     return { text: guess, finalGuess: extractGuessName(guess) || candidates[0].name };
   }
@@ -353,15 +361,21 @@ async function getGraphCandidates(env: Env, session: GameSession): Promise<Chara
 
 async function chooseBestGraphQuestion(env: Env, session: GameSession, candidates: CharacterCandidate[]) {
   const asked = new Set(session.history.map((item) => item.attributeKey).filter(Boolean));
+  const category = normalizeCategory(session.category);
 
-  const { results } = await env.GAMES_DB.prepare(
-    `SELECT id, text, attribute_key, category, priority
-     FROM questions
-     WHERE (category IS NULL OR category = ?)
-     ORDER BY priority DESC, id ASC`
-  )
-    .bind(normalizeCategory(session.category) || "character")
-    .all<QuestionRow>();
+  const statement = category
+    ? env.GAMES_DB.prepare(
+        `SELECT id, text, attribute_key, category, priority
+         FROM questions
+         WHERE (category IS NULL OR category = ?)
+         ORDER BY priority DESC, id ASC`
+      )
+    : env.GAMES_DB.prepare(
+        `SELECT id, text, attribute_key, category, priority
+         FROM questions
+         ORDER BY priority DESC, id ASC`
+      );
+  const { results } = category ? await statement.bind(category).all<QuestionRow>() : await statement.all<QuestionRow>();
 
   let best: QuestionRow | null = null;
   let bestScore = Number.POSITIVE_INFINITY;
@@ -490,6 +504,10 @@ function graphFiltersFromHistory(session: GameSession) {
     .filter((filter): filter is { attributeKey: string; value: number } => Boolean(filter));
 }
 
+function countAnsweredGraphQuestions(session: GameSession) {
+  return session.history.filter((item) => item.attributeKey && item.answer).length;
+}
+
 function answerToBinary(answer: string) {
   const normalized = answer.trim().toLowerCase();
   if (normalized === "yes" || normalized === "kind of" || normalized === "sort of") return 1;
@@ -516,6 +534,7 @@ function toCandidate(row: CharacterRow): CharacterCandidate | null {
 function normalizeCategory(category: string) {
   const normalized = category.trim().toLowerCase();
   if (normalized === "character" || normalized === "object" || normalized === "place") return normalized;
+  if (normalized.includes("character") && normalized.includes("object") && normalized.includes("place")) return "";
   return "";
 }
 
