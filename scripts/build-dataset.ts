@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createDatasetVersionId } from "../src/dataset/dataset-version";
 import { enrichEntity } from "../src/dataset/enrich-entity";
 import { normalizeEntity } from "../src/dataset/normalize-entity";
@@ -54,6 +55,14 @@ async function main() {
     validationReport: report
   });
 
+  if (!options.dryRun) {
+    runPersistedDatasetValidation({
+      datasetVersionId,
+      database: options.d1Database,
+      remote: options.remote
+    });
+  }
+
   console.log("Dataset build complete.");
   console.log(`Entities processed: ${entities.length}`);
   console.log(`Entities written: ${options.dryRun ? 0 : writableEntities.length}`);
@@ -102,6 +111,28 @@ function printValidationSummary(report: ReturnType<typeof validateDataset>) {
     console.log(`- [${issue.severity}] ${issue.code}: ${issue.message}`);
   }
   if (report.issues.length > 25) console.log(`- ...${report.issues.length - 25} more issues`);
+}
+
+function runPersistedDatasetValidation(options: { datasetVersionId: string; database: string; remote: boolean }) {
+  console.log("Running persisted dataset validation...");
+  const args = [
+    "tsx",
+    "scripts/validate-dataset.ts",
+    "--version",
+    options.datasetVersionId,
+    "--save",
+    "--database",
+    options.database
+  ];
+  if (options.remote) args.push("--remote");
+
+  const result = spawnSync("npx", args, { stdio: "inherit", encoding: "utf8" });
+  if (result.status === 2) {
+    throw new Error("Persisted dataset validation failed.");
+  }
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(`Persisted dataset validation exited with status ${result.status ?? "unknown"}.`);
+  }
 }
 
 function usageAndExit(status: number, message?: string): never {

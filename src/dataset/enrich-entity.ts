@@ -26,7 +26,7 @@ const DEFAULT_MODEL = "deepseek-v4-flash";
 
 export function enrichConfig() {
   return {
-    baseUrl: process.env.LLM_BASE_URL || DEFAULT_BASE_URL,
+    baseUrl: normalizeBaseUrl(process.env.LLM_BASE_URL || DEFAULT_BASE_URL),
     apiKey: process.env.LLM_API_KEY || "",
     model: process.env.LLM_MODEL || DEFAULT_MODEL
   };
@@ -138,6 +138,11 @@ function configProvider(): string {
   if (url.includes("opencode")) return "opencode";
   if (url.includes("openrouter")) return "openrouter";
   return "custom";
+}
+
+function normalizeBaseUrl(url: string): string {
+  if (url.endsWith("/chat/completions")) return url;
+  return `${url.replace(/\/+$/, "")}/chat/completions`;
 }
 
 function isAssertionValue(value: unknown): value is AttributeAssertion["value"] {
