@@ -33,6 +33,7 @@ export type GameSession = {
 const MAX_QUESTIONS = 20;
 const LLM_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 const TTS_MODEL = "@cf/deepgram/aura-2-en";
+const TARS_PERSONA = "You are TARS. Dry, dark humor. Short answers. Clipped. Efficient. Never use 'Q:' or 'A:' format.";
 
 const AI_THINKS_CHARACTERS = [
   "Ellen Ripley",
@@ -108,6 +109,112 @@ const DEFAULT_GRAPH_QUESTIONS: Array<{ text: string; attributeKey: string; categ
   { text: "Is it a place?", attributeKey: "place", priority: 54 },
   { text: "Is it an animal?", attributeKey: "animal", priority: 53 },
   { text: "Is it food or drink?", attributeKey: "food", priority: 52 }
+];
+
+const DEFAULT_GRAPH_CHARACTERS: Array<{ name: string; category: string; description: string; attributes: string }> = [
+  { name: "Spider-Man", category: "character", description: "Marvel superhero with web-slinging powers.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1}" },
+  { name: "Darth Vader", category: "character", description: "Sith lord from Star Wars.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"villain\":1,\"sci_fi\":1}" },
+  { name: "Luke Skywalker", category: "character", description: "Jedi hero from Star Wars.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Yoda", category: "character", description: "Small Jedi master from Star Wars.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"sci_fi\":1,\"supernatural\":1}" },
+  { name: "Harry Potter", category: "character", description: "Wizard protagonist from the Harry Potter series.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Hermione Granger", category: "character", description: "Brilliant witch from Harry Potter.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Voldemort", category: "character", description: "Dark wizard villain from Harry Potter.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"villain\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Simba", category: "character", description: "Lion king from Disney animation.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Woody", category: "character", description: "Cowboy toy from Toy Story.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1,\"object\":1}" },
+  { name: "Buzz Lightyear", category: "character", description: "Space ranger toy from Toy Story.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1,\"object\":1,\"sci_fi\":1}" },
+  { name: "Elsa", category: "character", description: "Queen with ice powers from Frozen.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Moana", category: "character", description: "Wayfinder heroine from Disney.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1}" },
+  { name: "Jack Sparrow", category: "character", description: "Pirate captain from Pirates of the Caribbean.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1}" },
+  { name: "Iron Man", category: "character", description: "Armored Marvel superhero Tony Stark.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Captain America", category: "character", description: "Marvel super soldier hero.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Thanos", category: "character", description: "Marvel cosmic villain.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"villain\":1,\"sci_fi\":1}" },
+  { name: "The Joker", category: "character", description: "Batman villain and chaos enthusiast.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"villain\":1}" },
+  { name: "Batman", category: "character", description: "Gotham detective superhero.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1}" },
+  { name: "Wonder Woman", category: "character", description: "Amazon superhero from DC Comics.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"fantasy\":1}" },
+  { name: "Forrest Gump", category: "character", description: "Kind-hearted film protagonist.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1}" },
+  { name: "The Dude", category: "character", description: "Laid-back protagonist of The Big Lebowski.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1}" },
+  { name: "Tyler Durden", category: "character", description: "Antagonistic figure from Fight Club.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"villain\":1}" },
+  { name: "Princess Leia", category: "character", description: "Rebel leader from Star Wars.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Ellen Ripley", category: "character", description: "Alien franchise survivor.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Indiana Jones", category: "character", description: "Archaeologist adventurer.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1}" },
+  { name: "James Bond", category: "character", description: "British spy and film icon.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1}" },
+  { name: "Katniss Everdeen", category: "character", description: "Archer protagonist from The Hunger Games.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Frodo Baggins", category: "character", description: "Ring bearer from The Lord of the Rings.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1}" },
+  { name: "Gandalf", category: "character", description: "Wizard from Middle-earth.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Gollum", category: "character", description: "Ring-obsessed creature from Middle-earth.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1}" },
+  { name: "Mario", category: "character", description: "Nintendo plumber hero.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1}" },
+  { name: "Luigi", category: "character", description: "Mario brother and reluctant hero.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1}" },
+  { name: "Princess Peach", category: "character", description: "Mushroom Kingdom princess.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_game\":1,\"main_character\":1,\"animated\":1,\"fantasy\":1}" },
+  { name: "Link", category: "character", description: "Hero from The Legend of Zelda.", attributes: "{\"fictional\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"fantasy\":1}" },
+  { name: "Zelda", category: "character", description: "Princess from The Legend of Zelda.", attributes: "{\"fictional\":1,\"female\":1,\"from_game\":1,\"main_character\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Sonic", category: "character", description: "Fast blue hedgehog.", attributes: "{\"fictional\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Pikachu", category: "character", description: "Electric Pokemon mascot.", attributes: "{\"fictional\":1,\"from_game\":1,\"main_character\":1,\"animated\":1,\"animal\":1,\"supernatural\":1}" },
+  { name: "Kratos", category: "character", description: "God-slaying warrior from God of War.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Master Chief", category: "character", description: "Armored supersoldier from Halo.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Lara Croft", category: "character", description: "Tomb-raiding video game adventurer.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_game\":1,\"main_character\":1}" },
+  { name: "Pac-Man", category: "character", description: "Arcade maze icon.", attributes: "{\"fictional\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1}" },
+  { name: "Donkey Kong", category: "character", description: "Nintendo ape.", attributes: "{\"fictional\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Samus Aran", category: "character", description: "Bounty hunter from Metroid.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_game\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Cloud Strife", category: "character", description: "Mercenary hero from Final Fantasy VII.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"fantasy\":1,\"sci_fi\":1}" },
+  { name: "Sephiroth", category: "character", description: "Final Fantasy VII antagonist.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"villain\":1,\"fantasy\":1,\"sci_fi\":1}" },
+  { name: "Homer Simpson", category: "character", description: "Animated father from The Simpsons.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1}" },
+  { name: "Peter Griffin", category: "character", description: "Animated father from Family Guy.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1}" },
+  { name: "SpongeBob SquarePants", category: "character", description: "Animated sponge from Bikini Bottom.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Patrick Star", category: "character", description: "Animated starfish from SpongeBob.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Jerry Mouse", category: "character", description: "Mouse from Tom and Jerry.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Bugs Bunny", category: "character", description: "Looney Tunes rabbit.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Scooby-Doo", category: "character", description: "Mystery-solving dog.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Sherlock Holmes", category: "character", description: "Detective from classic fiction.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_book\":1,\"main_character\":1}" },
+  { name: "Wednesday Addams", category: "character", description: "Macabre Addams Family member.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_tv\":1,\"from_movie\":1,\"main_character\":1}" },
+  { name: "Jean-Luc Picard", category: "character", description: "Starfleet captain from Star Trek.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Walter White", category: "character", description: "Chemistry teacher turned criminal.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"villain\":1}" },
+  { name: "Daenerys Targaryen", category: "character", description: "Dragon-riding queen from Game of Thrones.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_tv\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1}" },
+  { name: "Jon Snow", category: "character", description: "Hero from Game of Thrones.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1}" },
+  { name: "Eleven", category: "character", description: "Telekinetic character from Stranger Things.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_tv\":1,\"main_character\":1,\"sci_fi\":1,\"supernatural\":1}" },
+  { name: "Mickey Mouse", category: "character", description: "Disney mouse mascot.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
+  { name: "Albert Einstein", category: "character", description: "Real theoretical physicist.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
+  { name: "Michael Jordan", category: "character", description: "Real basketball legend.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
+  { name: "Elvis Presley", category: "character", description: "Real singer and cultural icon.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
+  { name: "Taylor Swift", category: "character", description: "Real singer-songwriter.", attributes: "{\"human\":1,\"real_living\":1,\"female\":1}" },
+  { name: "LeBron James", category: "character", description: "Real basketball player.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
+  { name: "Beyonce", category: "character", description: "Real singer and performer.", attributes: "{\"human\":1,\"real_living\":1,\"female\":1}" },
+  { name: "Isaac Newton", category: "character", description: "Real physicist and mathematician.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
+  { name: "William Shakespeare", category: "character", description: "Real playwright and poet.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
+  { name: "Abraham Lincoln", category: "character", description: "Real U.S. president.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
+  { name: "Cleopatra", category: "character", description: "Real queen of ancient Egypt.", attributes: "{\"human\":1,\"real_living\":1,\"female\":1}" },
+  { name: "Mona Lisa", category: "object", description: "Famous portrait painting.", attributes: "{\"object\":1}" },
+  { name: "Golden Snitch", category: "object", description: "Flying ball from Quidditch.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "One Ring", category: "object", description: "Powerful ring from The Lord of the Rings.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Lightsaber", category: "object", description: "Energy sword from Star Wars.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"sci_fi\":1}" },
+  { name: "Death Star", category: "object", description: "Planet-destroying space station.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"sci_fi\":1}" },
+  { name: "TARDIS", category: "object", description: "Time-traveling police box from Doctor Who.", attributes: "{\"fictional\":1,\"object\":1,\"from_tv\":1,\"sci_fi\":1}" },
+  { name: "Mjolnir", category: "object", description: "Thor hammer from Norse myth and Marvel.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_comic\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Infinity Gauntlet", category: "object", description: "Marvel artifact for Infinity Stones.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_comic\":1,\"sci_fi\":1,\"supernatural\":1}" },
+  { name: "Sorting Hat", category: "object", description: "Talking hat from Harry Potter.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Flux Capacitor", category: "object", description: "Time travel device from Back to the Future.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"sci_fi\":1}" },
+  { name: "Niffler", category: "character", description: "Treasure-loving magical creature.", attributes: "{\"fictional\":1,\"from_movie\":1,\"from_book\":1,\"animal\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Grass", category: "object", description: "Common real plant ground cover.", attributes: "{\"real_living\":1}" },
+  { name: "Pizza", category: "object", description: "Popular food.", attributes: "{\"object\":1,\"food\":1}" },
+  { name: "Coffee", category: "object", description: "Caffeinated drink.", attributes: "{\"object\":1,\"food\":1}" },
+  { name: "Hogwarts", category: "place", description: "Wizarding school from Harry Potter.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Narnia", category: "place", description: "Fantasy world reached through a wardrobe.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Mordor", category: "place", description: "Dark realm in Middle-earth.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1}" },
+  { name: "Wakanda", category: "place", description: "Fictional African nation from Marvel.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_comic\":1,\"sci_fi\":1}" },
+  { name: "Atlantis", category: "place", description: "Legendary underwater city.", attributes: "{\"fictional\":1,\"place\":1,\"fantasy\":1}" },
+  { name: "Gotham City", category: "place", description: "Batman home city.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_comic\":1}" },
+  { name: "Metropolis", category: "place", description: "Superman home city.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_comic\":1}" },
+  { name: "Middle-earth", category: "place", description: "Fantasy setting of Tolkien stories.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1}" },
+  { name: "Bikini Bottom", category: "place", description: "Undersea town from SpongeBob.", attributes: "{\"fictional\":1,\"place\":1,\"from_tv\":1,\"animated\":1}" },
+  { name: "Springfield", category: "place", description: "Home city of The Simpsons.", attributes: "{\"fictional\":1,\"place\":1,\"from_tv\":1,\"animated\":1}" },
+  { name: "Jurassic Park", category: "place", description: "Dinosaur theme park setting.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"sci_fi\":1}" },
+  { name: "Emerald City", category: "place", description: "Capital city in Oz.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1}" },
+  { name: "Death Valley", category: "place", description: "Real desert valley in the United States.", attributes: "{\"place\":1}" },
+  { name: "Mount Everest", category: "place", description: "Real highest mountain on Earth.", attributes: "{\"place\":1}" },
+  { name: "Superman", category: "character", description: "DC superhero from Krypton.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Dumbledore", category: "character", description: "Headmaster wizard from Harry Potter.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
+  { name: "Black Panther", category: "character", description: "Marvel hero and king of Wakanda.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"sci_fi\":1}" },
+  { name: "Dora the Explorer", category: "character", description: "Animated child explorer from TV.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1}" },
+  { name: "Coca-Cola", category: "object", description: "Popular soft drink.", attributes: "{\"object\":1,\"food\":1}" },
 ];
 
 export function json(data: unknown, status = 200) {
@@ -215,13 +322,14 @@ Your memory summary (one sentence, observational only):`;
 
 function historyText(session: GameSession) {
   if (session.history.length === 0) return "No questions asked yet.";
-  return session.history.map((item, index) => `${index + 1}. Q: ${item.question}\nA: ${item.answer}`).join("\n");
+  return session.history.map((item, index) => `[${index + 1}] ${item.question} → ${item.answer || "Pending"}`).join("\n");
 }
 
 export async function answerQuestion(env: Env, session: GameSession, question: string) {
-  const prompt = `You are TARS. Your secret: ${session.character}
+  const prompt = `${TARS_PERSONA}
+Your secret: ${session.character}
 
-Voice: dry, dark humor. Short answers only: "Yes." "No." "Kind of." "Sort of." "Not exactly." "Correct." "Incorrect."
+Short answers only: "Yes." "No." "Kind of." "Sort of." "Not exactly." "Correct." "Incorrect."
 You may add ONE short quip. No explanations. No apologies.
 
 HISTORY: ${historyText(session)}${session.tarsMemory || ""}`;
@@ -242,18 +350,16 @@ export async function askYouThinkQuestion(env: Env, session: GameSession, latest
   const graphQuestion = await askGraphQuestion(env, session, latestAnswer);
   if (graphQuestion) return graphQuestion;
 
-  const pastGamesContext = (session.tarsMemory || "").replace(/^\s*Past games context:\s*/, "");
-  const prompt = `You are TARS playing 20 Questions in reverse. The user picked a ${session.category || "thing"}.
+  const prompt = `${TARS_PERSONA}
+You are playing 20 Questions in reverse. The user picked a ${session.category || "thing"}.
 
 Rules:
 - Ask ONE yes/no question at a time.
 - Do not repeat questions.
-- Keep it under 15 words + a quip.
-- You can add a dry TARS quip after the question.
+- Keep it under 15 words, plus one short quip if useful.
+- Sound conversational, not like a form.
 
-Past games context: ${pastGamesContext}
-
-Q&A so far:
+History:
 ${historyText(session)}
 
 Latest answer: ${latestAnswer || "Ready."}`;
@@ -280,11 +386,11 @@ Latest answer: ${latestAnswer || "Ready."}`;
 
 export async function guessYouThinkAnswer(env: Env, session: GameSession) {
   const candidates = await getGraphCandidates(env, session);
-  const prompt = `You are TARS playing 20 Questions in reverse. You need to make a final guess.
-Based on the Q&A so far, who or what is the player thinking of?
-Use what you know about characters. One line, dry delivery. Start with your guess.
+  const prompt = `${TARS_PERSONA}
+You are playing 20 Questions in reverse. Make a final guess.
+Use your general knowledge and the history. Do not dump data. One dry line. Start with the guess.
 
-Q&A:
+History:
 ${historyText(session)}`;
 
   const response = await env.AI.run(env.LLM_MODEL ?? LLM_MODEL, {
@@ -393,7 +499,7 @@ async function phraseGraphQuestion(
   env: Env,
   session: GameSession,
   question: QuestionRow,
-  candidateCount: number,
+  _candidateCount: number,
   latestAnswer?: string
 ) {
   try {
@@ -401,10 +507,11 @@ async function phraseGraphQuestion(
       messages: [
         {
           role: "system",
-          content: `You are TARS playing 20 Questions in reverse. Ask a natural yes/no question to narrow down what the player is thinking of.
+          content: `${TARS_PERSONA}
+You are playing 20 Questions in reverse. Ask a natural yes/no question to narrow down what the player is thinking of.
 You need to figure out: ${question.text}
-Remaining possibilities: ${candidateCount}
-Q&A so far: ${historyText(session)}
+Narrow it down.
+History: ${historyText(session)}
 Keep it under 15 words plus one short dry quip.`
         },
         {
@@ -429,13 +536,14 @@ async function phraseGraphGuess(env: Env, session: GameSession, candidate: Chara
       messages: [
         {
           role: "system",
-          content: "You are TARS. Make one final 20 Questions guess in one dry line. Start with the name."
+          content: `${TARS_PERSONA}
+Make one final 20 Questions guess in one dry line. Start with the name.`
         },
         {
           role: "user",
           content: `Only remaining candidate: ${candidate.name}
 Description: ${candidate.description || "No dossier."}
-Q&A:
+History:
 ${historyText(session)}`
         }
       ],
@@ -471,6 +579,17 @@ async function ensureGraphTables(env: Env) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`
   ).run();
+
+  const { results: characterResults } = await env.GAMES_DB.prepare(`SELECT COUNT(*) AS count FROM characters`).all<{ count: number }>();
+  if ((characterResults?.[0]?.count || 0) === 0) {
+    const characterStatements = DEFAULT_GRAPH_CHARACTERS.map((character) =>
+      env.GAMES_DB.prepare(
+        `INSERT OR IGNORE INTO characters (name, category, description, attributes)
+         VALUES (?, ?, ?, ?)`
+      ).bind(character.name, character.category, character.description, character.attributes)
+    );
+    await env.GAMES_DB.batch(characterStatements);
+  }
 
   const { results } = await env.GAMES_DB.prepare(`SELECT COUNT(*) AS count FROM questions`).all<{ count: number }>();
   if ((results?.[0]?.count || 0) > 0) return;
