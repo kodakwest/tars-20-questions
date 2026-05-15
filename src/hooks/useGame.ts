@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearSavedGame, saveGame, type PersistedGame } from "../gamePersistence";
 import type {
   AskResponse,
+  Category,
   ConfirmGuessResponse,
   GameMode,
   GameResult,
@@ -181,7 +182,7 @@ export function useGame() {
     }
   }, [cancelSpeech, voiceMode, voiceName]);
 
-  const newGame = useCallback(async (nextMode = mode) => {
+  const newGame = useCallback(async (nextMode = mode, category?: Category) => {
     clearSavedGame();
     setIsLoading(true);
     setError(null);
@@ -193,7 +194,7 @@ export function useGame() {
     setMode(nextMode);
 
     try {
-      const data = await postJson<NewGameResponse>("/api/new-game", { mode: nextMode });
+      const data = await postJson<NewGameResponse>("/api/new-game", { mode: nextMode, category });
       setSessionId(data.sessionId);
       setMode(data.mode ?? nextMode);
       setQuestionsLeft(data.questionsLeft ?? MAX_QUESTIONS);
@@ -206,9 +207,9 @@ export function useGame() {
     }
   }, [mode, speak]);
 
-  const start = useCallback((nextMode: GameMode) => {
+  const start = useCallback((nextMode: GameMode, category?: Category) => {
     setStarted(true);
-    void newGame(nextMode);
+    void newGame(nextMode, category);
   }, [newGame]);
 
   const resume = useCallback((saved: PersistedGame) => {

@@ -3,6 +3,7 @@ import { GameBoard } from "./components/GameBoard";
 import { StartScreen } from "./components/StartScreen";
 import { clearSavedGame, isSavedGameStorageEvent, loadSavedGame, type PersistedGame } from "./gamePersistence";
 import { useGame } from "./hooks/useGame";
+import type { Category, GameMode } from "./types";
 
 export default function App() {
   const game = useGame();
@@ -29,6 +30,10 @@ export default function App() {
     setSavedGame(null);
   };
 
+  const handleStart = (mode: GameMode, category?: Category) => {
+    game.start(mode, category);
+  };
+
   return (
     <main className="min-h-screen min-h-svh overflow-x-hidden overscroll-none bg-void text-slate-100">
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(57,245,196,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(57,245,196,0.055)_1px,transparent_1px)] bg-[size:28px_28px]" />
@@ -40,7 +45,7 @@ export default function App() {
           savedGame={savedGame}
           onDiscardSavedGame={handleDiscardSavedGame}
           onResume={handleResume}
-          onStart={game.start}
+          onStart={handleStart}
           voiceName={game.voiceName}
           setVoiceName={game.setVoiceName}
         />

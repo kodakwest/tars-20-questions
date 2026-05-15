@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TARS Avatar State Proof</title>
+    <style>
+      :root {
+        --color-void: #07090d;
+        --color-hull: #111827;
+        --color-signal: #39f5c4;
+        --color-warning: #ffb86b;
+        --color-danger: #ff5d73;
+        --color-muted: #8b9bb4;
+        --font-display: "Orbitron", "Eurostile", "Bank Gothic", system-ui, sans-serif;
+        --stage-size: min(200px, calc(100vw - 48px));
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        color-scheme: dark;
+      }
+
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at 50% 35%, rgba(57, 245, 196, 0.08), transparent 34rem),
+          linear-gradient(180deg, #090d14 0%, var(--color-void) 55%);
+        color: #eef7fb;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .proof {
+        width: min(760px, 100%);
+        padding: 28px 16px 30px;
+        text-align: center;
+      }
+
+      .eyebrow {
+        margin: 0 0 18px;
+        color: rgba(57, 245, 196, 0.68);
+        font-family: var(--font-display);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .avatar-stage {
+        position: relative;
+        width: var(--stage-size);
+        height: var(--stage-size);
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid rgba(57, 245, 196, 0.32);
+        border-radius: 24px;
+        background:
+          linear-gradient(rgba(57, 245, 196, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(57, 245, 196, 0.04) 1px, transparent 1px),
+          #080b10;
+        background-size: 26px 26px;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+          0 0 32px rgba(57, 245, 196, 0.12);
+        isolation: isolate;
+      }
+
+      .avatar-stage::before,
+      .avatar-stage::after,
+      .effect,
+      .fallback,
+      .avatar {
+        position: absolute;
+        inset: 0;
+      }
+
+      .avatar-stage::before {
+        content: "";
+        margin: 10px;
+        border: 1px solid rgba(57, 245, 196, 0.58);
+        border-radius: 18px;
+        opacity: 0.7;
+        box-shadow: 0 0 18px rgba(57, 245, 196, 0.18);
+      }
+
+      .avatar-stage::after {
+        content: "";
+        background: linear-gradient(
+          180deg,
+          transparent 0%,
+          transparent 38%,
+          rgba(57, 245, 196, 0.22) 48%,
+          rgba(57, 245, 196, 0.56) 50%,
+          rgba(57, 245, 196, 0.18) 53%,
+          transparent 64%,
+          transparent 100%
+        );
+        opacity: 0;
+        transform: translateY(-68%);
+        mix-blend-mode: screen;
+        pointer-events: none;
+        z-index: 4;
+      }
+
+      .avatar {
+        width: 134px;
+        height: 134px;
+        margin: auto;
+        border-radius: 18px;
+        object-fit: contain;
+        z-index: 2;
+        filter: drop-shadow(0 0 14px rgba(57, 245, 196, 0.18));
+        transition: filter 220ms ease, transform 220ms ease, opacity 220ms ease;
+      }
+
+      .fallback {
+        width: 134px;
+        height: 134px;
+        margin: auto;
+        display: grid;
+        place-items: center;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #101826, #0a0e15);
+        color: rgba(57, 245, 196, 0.72);
+        font-family: var(--font-display);
+        font-size: 1.4rem;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        opacity: 0;
+        z-index: 1;
+      }
+
+      .avatar-stage.is-missing .avatar {
+        opacity: 0;
+      }
+
+      .avatar-stage.is-missing .fallback {
+        opacity: 1;
+      }
+
+      .ring {
+        margin: 18px;
+        border-radius: 50%;
+        border: 1px solid rgba(57, 245, 196, 0.55);
+        box-shadow:
+          0 0 24px rgba(57, 245, 196, 0.14),
+          0 0 0 10px rgba(57, 245, 196, 0.035);
+        z-index: 0;
+      }
+
+      .radar {
+        margin: 15px;
+        border-radius: 50%;
+        background: conic-gradient(from 0deg, transparent 0 255deg, rgba(57, 245, 196, 0.06) 280deg, rgba(255, 184, 107, 0.7) 320deg, transparent 350deg);
+        opacity: 0;
+        z-index: 0;
+      }
+
+      .overlay-tint {
+        background: rgba(255, 93, 115, 0);
+        mix-blend-mode: screen;
+        z-index: 5;
+        pointer-events: none;
+      }
+
+      .orbit,
+      .ripples,
+      .bars,
+      .burst {
+        pointer-events: none;
+        z-index: 3;
+      }
+
+      .orbit-dot,
+      .particle,
+      .bar {
+        position: absolute;
+      }
+
+      .orbit-dot {
+        width: 8px;
+        height: 8px;
+        top: calc(50% - 4px);
+        left: calc(50% - 4px);
+        border-radius: 50%;
+        background: var(--color-warning);
+        box-shadow: 0 0 12px rgba(255, 184, 107, 0.65);
+        opacity: 0;
+      }
+
+      .orbit-dot:nth-child(1) {
+        transform: rotate(0deg) translateX(78px);
+      }
+
+      .orbit-dot:nth-child(2) {
+        transform: rotate(120deg) translateX(78px);
+      }
+
+      .orbit-dot:nth-child(3) {
+        transform: rotate(240deg) translateX(78px);
+      }
+
+      .ripple {
+        position: absolute;
+        inset: 48px;
+        border: 1px solid rgba(57, 245, 196, 0.58);
+        border-radius: 50%;
+        opacity: 0;
+      }
+
+      .ripple:nth-child(2) {
+        animation-delay: 650ms;
+      }
+
+      .ripple:nth-child(3) {
+        animation-delay: 1300ms;
+      }
+
+      .bars {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 5px;
+        padding-bottom: 38px;
+      }
+
+      .bar {
+        position: static;
+        width: 5px;
+        height: 18px;
+        border-radius: 999px;
+        background: var(--color-warning);
+        box-shadow: 0 0 12px rgba(255, 184, 107, 0.6);
+        opacity: 0;
+        transform-origin: bottom;
+      }
+
+      .bar:nth-child(2) {
+        height: 28px;
+        animation-delay: 90ms;
+      }
+
+      .bar:nth-child(3) {
+        height: 20px;
+        animation-delay: 180ms;
+      }
+
+      .bar:nth-child(4) {
+        height: 34px;
+        animation-delay: 40ms;
+      }
+
+      .bar:nth-child(5) {
+        height: 24px;
+        animation-delay: 140ms;
+      }
+
+      .particle {
+        width: 8px;
+        height: 8px;
+        top: calc(50% - 4px);
+        left: calc(50% - 4px);
+        border: 1px solid var(--color-signal);
+        box-shadow: 0 0 12px rgba(57, 245, 196, 0.72);
+        opacity: 0;
+      }
+
+      .particle:nth-child(1) { --x: -78px; --y: -70px; }
+      .particle:nth-child(2) { --x: -36px; --y: -86px; }
+      .particle:nth-child(3) { --x: 38px; --y: -82px; }
+      .particle:nth-child(4) { --x: 82px; --y: -42px; }
+      .particle:nth-child(5) { --x: 80px; --y: 48px; }
+      .particle:nth-child(6) { --x: 32px; --y: 84px; }
+      .particle:nth-child(7) { --x: -54px; --y: 78px; }
+      .particle:nth-child(8) { --x: -86px; --y: 18px; }
+
+      .state-title {
+        min-height: 1.28em;
+        margin: 22px 0 4px;
+        color: var(--color-signal);
+        font-family: var(--font-display);
+        font-size: clamp(2rem, 9vw, 4.2rem);
+        font-weight: 800;
+        letter-spacing: 0;
+        line-height: 1;
+        text-transform: uppercase;
+        text-shadow: 0 0 20px rgba(57, 245, 196, 0.22);
+      }
+
+      .controls,
+      .state-controls {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .controls {
+        align-items: center;
+        margin: 24px auto 16px;
+        max-width: 700px;
+      }
+
+      .state-controls {
+        max-width: 100%;
+      }
+
+      .state-button,
+      .auto-button {
+        min-height: 40px;
+        border: 1px solid rgba(139, 155, 180, 0.24);
+        border-radius: 999px;
+        padding: 0 16px;
+        background: rgba(17, 24, 39, 0.72);
+        color: #d9e6ef;
+        cursor: pointer;
+        transition: border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, background 160ms ease;
+      }
+
+      .state-button:hover,
+      .auto-button:hover {
+        border-color: rgba(57, 245, 196, 0.72);
+        color: #ffffff;
+      }
+
+      .state-button[aria-pressed="true"],
+      .auto-button[aria-pressed="true"] {
+        border-color: rgba(57, 245, 196, 0.85);
+        background: rgba(57, 245, 196, 0.12);
+        color: var(--color-signal);
+        box-shadow: 0 0 20px rgba(57, 245, 196, 0.13);
+      }
+
+      .status {
+        min-height: 1.6em;
+        margin: 0;
+        color: var(--color-muted);
+        font-size: 0.95rem;
+        letter-spacing: 0.02em;
+      }
+
+      .status-dot {
+        display: inline-block;
+        width: 0.62rem;
+        height: 0.62rem;
+        margin-right: 0.5rem;
+        border-radius: 50%;
+        background: var(--color-signal);
+        box-shadow: 0 0 14px rgba(57, 245, 196, 0.55);
+        vertical-align: 0.02em;
+      }
+
+      .avatar-stage[data-state="idle"]::after,
+      .avatar-stage[data-state="waiting"]::after {
+        opacity: 1;
+        animation: scan 3s linear infinite;
+      }
+
+      .avatar-stage[data-state="waiting"] ~ .status .status-dot {
+        animation: dotPulse 1.8s ease-in-out infinite;
+      }
+
+      .avatar-stage[data-state="thinking"] .orbit {
+        animation: orbit 2.4s linear infinite;
+      }
+
+      .avatar-stage[data-state="thinking"] .orbit-dot {
+        opacity: 1;
+      }
+
+      .avatar-stage[data-state="thinking"] .avatar {
+        animation: thinkBrightness 2s ease-in-out infinite;
+      }
+
+      .avatar-stage[data-state="listening"] .ripple {
+        animation: ripple 2s ease-out infinite;
+      }
+
+      .avatar-stage[data-state="listening"] .ring {
+        animation: micPulse 1.2s ease-in-out infinite;
+      }
+
+      .avatar-stage[data-state="speaking"] {
+        border-color: rgba(255, 184, 107, 0.58);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+          0 0 34px rgba(255, 184, 107, 0.14);
+      }
+
+      .avatar-stage[data-state="speaking"] .avatar {
+        filter: drop-shadow(0 0 18px rgba(255, 184, 107, 0.26)) brightness(1.08);
+      }
+
+      .avatar-stage[data-state="speaking"] .bar {
+        opacity: 1;
+        animation: voiceBar 760ms ease-in-out infinite;
+      }
+
+      .avatar-stage[data-state="guessing"] .radar {
+        opacity: 1;
+        animation: radar 1.25s linear infinite;
+      }
+
+      .avatar-stage[data-state="guessing"] .avatar {
+        filter: drop-shadow(0 0 18px rgba(255, 184, 107, 0.28)) contrast(1.06);
+      }
+
+      .avatar-stage[data-state="celebrating"] .avatar {
+        animation: avatarPop 1.6s ease-out 1;
+      }
+
+      .avatar-stage[data-state="celebrating"] .particle {
+        animation: burst 1.6s ease-out 1;
+      }
+
+      .avatar-stage[data-state="commiserating"] .avatar {
+        animation: dimFlicker 1.6s linear 1;
+      }
+
+      .avatar-stage[data-state="commiserating"] .overlay-tint {
+        animation: redTint 1.6s linear 1;
+      }
+
+      .avatar-stage[data-state="commiserating"] .ring {
+        border-color: rgba(255, 93, 115, 0.5);
+        box-shadow: 0 0 20px rgba(255, 93, 115, 0.12);
+      }
+
+      @keyframes scan {
+        0% { transform: translateY(-72%); }
+        100% { transform: translateY(72%); }
+      }
+
+      @keyframes dotPulse {
+        0%, 100% { transform: scale(1); opacity: 0.72; }
+        50% { transform: scale(1.45); opacity: 1; }
+      }
+
+      @keyframes orbit {
+        to { transform: rotate(360deg); }
+      }
+
+      @keyframes thinkBrightness {
+        0%, 100% { filter: drop-shadow(0 0 14px rgba(57, 245, 196, 0.18)) brightness(1); }
+        50% { filter: drop-shadow(0 0 22px rgba(255, 184, 107, 0.32)) brightness(1.22); }
+      }
+
+      @keyframes ripple {
+        0% { transform: scale(0.72); opacity: 0; }
+        18% { opacity: 0.76; }
+        100% { transform: scale(1.92); opacity: 0; }
+      }
+
+      @keyframes micPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.035); }
+      }
+
+      @keyframes voiceBar {
+        0%, 100% { transform: scaleY(0.42); }
+        45% { transform: scaleY(1); }
+        70% { transform: scaleY(0.68); }
+      }
+
+      @keyframes radar {
+        to { transform: rotate(360deg); }
+      }
+
+      @keyframes avatarPop {
+        0% { transform: scale(1); }
+        14% { transform: scale(1.08); }
+        36% { transform: scale(0.985); }
+        100% { transform: scale(1); }
+      }
+
+      @keyframes burst {
+        0% { transform: translate(0, 0) rotate(0deg) scale(0.4); opacity: 0; }
+        16% { opacity: 1; }
+        72% { opacity: 0.88; }
+        100% { transform: translate(var(--x), var(--y)) rotate(140deg) scale(1); opacity: 0; }
+      }
+
+      @keyframes dimFlicker {
+        0%, 100% { filter: grayscale(0) brightness(1); opacity: 1; }
+        12% { filter: grayscale(0.45) brightness(0.7); opacity: 0.86; }
+        22% { filter: grayscale(0.2) brightness(1.05); opacity: 1; }
+        36% { filter: grayscale(0.6) brightness(0.58); opacity: 0.78; }
+        50% { filter: grayscale(0.1) brightness(0.92); opacity: 0.94; }
+        68% { filter: grayscale(0.72) brightness(0.62); opacity: 0.82; }
+      }
+
+      @keyframes redTint {
+        0%, 100% { background: rgba(255, 93, 115, 0); }
+        16%, 58% { background: rgba(255, 93, 115, 0.19); }
+        34% { background: rgba(255, 93, 115, 0.08); }
+      }
+
+      @media (max-width: 460px) {
+        .proof {
+          padding-inline: 12px;
+        }
+
+        .state-controls {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 7px;
+          width: 100%;
+        }
+
+        .state-button {
+          width: 100%;
+          padding-inline: 2px;
+          font-size: clamp(0.52rem, 2.4vw, 0.72rem);
+        }
+
+        .auto-button {
+          width: min(180px, 100%);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 0.001ms !important;
+        }
+
+        .avatar-stage::after {
+          opacity: 0.35;
+          transform: translateY(0);
+        }
+
+        .avatar-stage[data-state="thinking"] .orbit-dot,
+        .avatar-stage[data-state="speaking"] .bar,
+        .avatar-stage[data-state="listening"] .ripple,
+        .avatar-stage[data-state="celebrating"] .particle {
+          opacity: 1;
+        }
+
+        .avatar-stage[data-state="commiserating"] .overlay-tint {
+          background: rgba(255, 93, 115, 0.16);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="proof" aria-labelledby="stateTitle">
+      <p class="eyebrow">TARS Avatar Animation States</p>
+
+      <section class="avatar-stage" data-state="idle" aria-label="TARS avatar preview">
+        <div class="effect ring"></div>
+        <div class="effect radar"></div>
+        <div class="effect orbit" aria-hidden="true">
+          <span class="orbit-dot"></span>
+          <span class="orbit-dot"></span>
+          <span class="orbit-dot"></span>
+        </div>
+        <div class="effect ripples" aria-hidden="true">
+          <span class="ripple"></span>
+          <span class="ripple"></span>
+          <span class="ripple"></span>
+        </div>
+        <img class="avatar" src="../public/tars-avatar.svg" alt="TARS avatar" />
+        <div class="fallback" aria-hidden="true">TARS</div>
+        <div class="effect bars" aria-hidden="true">
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+        </div>
+        <div class="effect burst" aria-hidden="true">
+          <span class="particle"></span>
+          <span class="particle"></span>
+          <span class="particle"></span>
+          <span class="particle"></span>
+          <span class="particle"></span>
+          <span class="particle"></span>
+          <span class="particle"></span>
+          <span class="particle"></span>
+        </div>
+        <div class="effect overlay-tint" aria-hidden="true"></div>
+      </section>
+
+      <h1 class="state-title" id="stateTitle">idle</h1>
+
+      <nav class="controls" aria-label="Avatar animation states">
+        <div class="state-controls">
+          <button class="state-button" type="button" data-state="idle" aria-label="Show idle avatar state" aria-pressed="true">idle</button>
+          <button class="state-button" type="button" data-state="waiting" aria-label="Show waiting avatar state" aria-pressed="false">waiting</button>
+          <button class="state-button" type="button" data-state="thinking" aria-label="Show thinking avatar state" aria-pressed="false">thinking</button>
+          <button class="state-button" type="button" data-state="listening" aria-label="Show listening avatar state" aria-pressed="false">listening</button>
+          <button class="state-button" type="button" data-state="speaking" aria-label="Show speaking avatar state" aria-pressed="false">speaking</button>
+          <button class="state-button" type="button" data-state="guessing" aria-label="Show guessing avatar state" aria-pressed="false">guessing</button>
+          <button class="state-button" type="button" data-state="celebrating" aria-label="Show celebrating avatar state" aria-pressed="false">celebrating</button>
+          <button class="state-button" type="button" data-state="commiserating" aria-label="Show commiserating avatar state" aria-pressed="false">commiserating</button>
+        </div>
+        <button class="auto-button" type="button" aria-label="Toggle autoplay through avatar states" aria-pressed="false">auto-play</button>
+      </nav>
+
+      <p class="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span id="statusText">standing by</span></p>
+    </main>
+
+    <script>
+      const states = [
+        ["idle", "standing by"],
+        ["waiting", "awaiting input"],
+        ["thinking", "processing"],
+        ["listening", "listening"],
+        ["speaking", "voice link active"],
+        ["guessing", "making guess"],
+        ["celebrating", "celebrating"],
+        ["commiserating", "commiserating"],
+      ];
+
+      const stage = document.querySelector(".avatar-stage");
+      const title = document.querySelector("#stateTitle");
+      const statusText = document.querySelector("#statusText");
+      const buttons = Array.from(document.querySelectorAll(".state-button"));
+      const autoButton = document.querySelector(".auto-button");
+      const avatar = document.querySelector(".avatar");
+      let currentIndex = 0;
+      let autoTimer = 0;
+
+      function setState(name) {
+        const foundIndex = states.findIndex(([state]) => state === name);
+        if (foundIndex === -1) return;
+
+        currentIndex = foundIndex;
+        const [state, status] = states[currentIndex];
+        stage.dataset.state = state;
+        title.textContent = state;
+        statusText.textContent = status;
+
+        buttons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.state === state));
+        });
+      }
+
+      function stopAutoPlay() {
+        window.clearInterval(autoTimer);
+        autoTimer = 0;
+        autoButton.setAttribute("aria-pressed", "false");
+      }
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+          stopAutoPlay();
+          setState(button.dataset.state);
+        });
+      });
+
+      autoButton.addEventListener("click", () => {
+        if (autoTimer) {
+          stopAutoPlay();
+          return;
+        }
+
+        autoButton.setAttribute("aria-pressed", "true");
+        autoTimer = window.setInterval(() => {
+          const next = states[(currentIndex + 1) % states.length][0];
+          setState(next);
+        }, 3000);
+      });
+
+      avatar.addEventListener("error", () => {
+        stage.classList.add("is-missing");
+      });
+    </script>
+  </body>
+</html>

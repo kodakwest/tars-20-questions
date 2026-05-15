@@ -2,6 +2,8 @@ export type Speaker = "user" | "tars";
 
 export type GameMode = "ai-thinks" | "you-think";
 
+export type Category = "character" | "object" | "place";
+
 export type VoiceModeLevel = "off" | "minimal" | "full";
 
 export type LogEntry = {

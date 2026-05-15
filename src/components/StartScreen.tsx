@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import type { PersistedGame } from "../gamePersistence";
-import type { GameMode } from "../types";
+import type { Category, GameMode } from "../types";
 import { ResumeGamePrompt } from "./ResumeGamePrompt";
+
+const CATEGORIES = ["character", "object", "place"] as const;
 
 type StartScreenProps = {
   savedGame: PersistedGame | null;
   onDiscardSavedGame: () => void;
   onResume: (game: PersistedGame) => void;
-  onStart: (mode: GameMode) => void;
+  onStart: (mode: GameMode, category?: Category) => void;
   voiceName?: string;
   setVoiceName: (name: string | undefined) => void;
 };
@@ -24,7 +26,9 @@ function prewarmSpeechSynthesis() {
 
 export function StartScreen({ savedGame, onDiscardSavedGame, onResume, onStart, voiceName, setVoiceName }: StartScreenProps) {
   const [mode, setMode] = useState<GameMode>("ai-thinks");
+  const [category, setCategory] = useState<Category | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const canStart = mode === "ai-thinks" || category !== null;
 
   useEffect(() => {
     try {
@@ -45,8 +49,16 @@ export function StartScreen({ savedGame, onDiscardSavedGame, onResume, onStart, 
   }, []);
 
   const handleStart = () => {
+    if (!canStart) return;
     prewarmSpeechSynthesis();
-    onStart(mode);
+    onStart(mode, category ?? undefined);
+  };
+
+  const selectMode = (nextMode: GameMode) => {
+    setMode(nextMode);
+    if (nextMode === "ai-thinks") {
+      setCategory(null);
+    }
   };
 
   // Previews the selected voice with a sample TARS line
@@ -87,7 +99,7 @@ export function StartScreen({ savedGame, onDiscardSavedGame, onResume, onStart, 
         <div className="mt-5 grid w-full grid-cols-2 rounded border border-slate-700 bg-slate-950/80 p-1 sm:mt-7">
           <button
             type="button"
-            onClick={() => setMode("ai-thinks")}
+            onClick={() => selectMode("ai-thinks")}
             className={`h-11 rounded font-display text-sm font-semibold transition ${
               mode === "ai-thinks" ? "bg-signal text-void" : "text-slate-300 hover:text-signal"
             }`}
@@ -97,7 +109,7 @@ export function StartScreen({ savedGame, onDiscardSavedGame, onResume, onStart, 
           </button>
           <button
             type="button"
-            onClick={() => setMode("you-think")}
+            onClick={() => selectMode("you-think")}
             className={`h-11 rounded font-display text-sm font-semibold transition ${
               mode === "you-think" ? "bg-warning text-void" : "text-slate-300 hover:text-warning"
             }`}
@@ -106,6 +118,31 @@ export function StartScreen({ savedGame, onDiscardSavedGame, onResume, onStart, 
             You Think
           </button>
         </div>
+
+        {mode === "you-think" && (
+          <div className="mt-3 w-full">
+            <label className="mb-2 block text-left font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
+              Category
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategory(cat)}
+                  className={`h-11 rounded font-display text-sm font-semibold capitalize transition ${
+                    category === cat
+                      ? "bg-warning text-void"
+                      : "border border-slate-700 text-slate-300 hover:border-warning hover:text-warning"
+                  }`}
+                  aria-pressed={category === cat}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300 sm:mt-4 sm:text-base">
           Confirm human intent to initialize the voice link and begin the game.
@@ -151,7 +188,8 @@ export function StartScreen({ savedGame, onDiscardSavedGame, onResume, onStart, 
         <button
           type="button"
           onClick={handleStart}
-          className="mt-5 inline-flex h-14 min-w-52 items-center justify-center rounded border border-signal/60 bg-signal px-7 font-display text-lg font-bold text-void shadow-[0_0_28px_rgba(57,245,196,0.24)] transition hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-warning focus:ring-offset-2 focus:ring-offset-void active:scale-[0.98] sm:mt-8"
+          disabled={!canStart}
+          className="mt-5 inline-flex h-14 min-w-52 items-center justify-center rounded border border-signal/60 bg-signal px-7 font-display text-lg font-bold text-void shadow-[0_0_28px_rgba(57,245,196,0.24)] transition hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-warning focus:ring-offset-2 focus:ring-offset-void active:scale-[0.98] disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none disabled:hover:bg-slate-800 sm:mt-8"
         >
           Tap to Begin
         </button>
