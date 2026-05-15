@@ -5,6 +5,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const mode: GameMode = body.mode === "you-think" ? "you-think" : "ai-thinks";
   const category = typeof body.category === "string" ? body.category : "something";
   const session = await createSession(env, mode, category);
+  session.domain = session.mode === "you-think" && ["character", "object", "place"].includes(session.category) ? session.category : "";
   session.tarsMemory = await getTarsMemory(env);
   await saveSession(env, session);
   const message = greeting(session);
@@ -15,6 +16,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     greeting: message,
     audioBase64,
     questionsLeft: session.questionsLeft,
-    mode: session.mode
+    mode: session.mode,
+    domain: session.domain
   });
 };

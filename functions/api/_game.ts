@@ -21,6 +21,7 @@ export type GameSession = {
   mode: GameMode;
   character: string;
   category: string;
+  domain: string;
   history: HistoryItem[];
   questionsLeft: number;
   gameOver: boolean;
@@ -62,20 +63,29 @@ const YOU_THINK_CATEGORIES = ["character", "object", "place"];
 const GRAPH_GUESS_THRESHOLD = 3;
 const MIN_GRAPH_QUESTIONS_BEFORE_GUESS = 10;
 
-type CharacterRow = {
-  id: number;
-  name: string;
-  category: string;
+type EntityRow = {
+  id: string;
+  canonical_name: string;
+  domain: string;
   description: string | null;
-  attributes: string;
 };
 
-type CharacterCandidate = Omit<CharacterRow, "attributes"> & {
+type AssertionRow = {
+  entity_id: string;
+  attribute_id: string;
+  attribute_key: string;
+  value: string;
+  numeric_value: number | null;
+  confidence: number;
+};
+
+type EntityCandidate = EntityRow & {
+  name: string;
   attributes: Record<string, number>;
 };
 
 type QuestionRow = {
-  id: number;
+  id: string;
   text: string;
   attribute_key: string;
   category: string | null;
@@ -89,133 +99,28 @@ type GraphQuestionResult = {
 };
 
 const DEFAULT_GRAPH_QUESTIONS: Array<{ text: string; attributeKey: string; category?: string; priority: number }> = [
-  { text: "Is your answer fictional?", attributeKey: "fictional", priority: 100 },
-  { text: "Is it a human being?", attributeKey: "human", priority: 95 },
-  { text: "Is it a real living thing?", attributeKey: "real_living", priority: 90 },
-  { text: "Is it male?", attributeKey: "male", category: "character", priority: 80 },
-  { text: "Is it female?", attributeKey: "female", category: "character", priority: 79 },
-  { text: "Is it from a movie?", attributeKey: "from_movie", category: "character", priority: 75 },
-  { text: "Is it from a video game?", attributeKey: "from_game", category: "character", priority: 74 },
-  { text: "Is it from a book?", attributeKey: "from_book", category: "character", priority: 73 },
-  { text: "Is it from TV?", attributeKey: "from_tv", category: "character", priority: 72 },
-  { text: "Is it from a comic book?", attributeKey: "from_comic", category: "character", priority: 71 },
-  { text: "Is it the main character?", attributeKey: "main_character", category: "character", priority: 68 },
-  { text: "Is it a villain?", attributeKey: "villain", category: "character", priority: 67 },
-  { text: "Does it involve magic or supernatural powers?", attributeKey: "supernatural", priority: 64 },
-  { text: "Is it from a science fiction setting?", attributeKey: "sci_fi", priority: 63 },
-  { text: "Is it from a fantasy setting?", attributeKey: "fantasy", priority: 62 },
-  { text: "Is it animated?", attributeKey: "animated", category: "character", priority: 60 },
-  { text: "Is it an object?", attributeKey: "object", priority: 55 },
-  { text: "Is it a place?", attributeKey: "place", priority: 54 },
-  { text: "Is it an animal?", attributeKey: "animal", priority: 53 },
-  { text: "Is it food or drink?", attributeKey: "food", priority: 52 }
+  { text: "Is it fictional?", attributeKey: "is_fictional", priority: 100 },
+  { text: "Is it real?", attributeKey: "is_real", priority: 98 },
+  { text: "Is it human?", attributeKey: "is_human", category: "character", priority: 95 },
+  { text: "Is it a character?", attributeKey: "is_character", category: "character", priority: 90 },
+  { text: "Is it an object?", attributeKey: "is_object", category: "object", priority: 90 },
+  { text: "Is it a place?", attributeKey: "is_place", category: "place", priority: 90 },
+  { text: "Is it from a movie?", attributeKey: "from_movie", priority: 75 },
+  { text: "Is it from a video game?", attributeKey: "from_video_game", priority: 74 },
+  { text: "Is it from a book?", attributeKey: "from_book", priority: 73 },
+  { text: "Is it from TV?", attributeKey: "from_tv", priority: 72 },
+  { text: "Is it from a comic book?", attributeKey: "from_comic", priority: 71 },
+  { text: "Does it involve magic or supernatural powers?", attributeKey: "is_supernatural", priority: 64 },
+  { text: "Is it from a science fiction setting?", attributeKey: "is_scifi", priority: 63 },
+  { text: "Is it from a fantasy setting?", attributeKey: "is_fantasy", priority: 62 },
+  { text: "Is it animated?", attributeKey: "is_animated", priority: 60 },
+  { text: "Is it an animal?", attributeKey: "is_animal", priority: 53 },
+  { text: "Is it food or drink?", attributeKey: "is_food_or_drink", category: "object", priority: 52 },
+  { text: "Is it a tool or device?", attributeKey: "is_tool_or_device", category: "object", priority: 51 },
+  { text: "Is it a natural place?", attributeKey: "is_natural_place", category: "place", priority: 50 },
+  { text: "Is it a city or settlement?", attributeKey: "is_city_or_settlement", category: "place", priority: 49 }
 ];
 
-const DEFAULT_GRAPH_CHARACTERS: Array<{ name: string; category: string; description: string; attributes: string }> = [
-  { name: "Spider-Man", category: "character", description: "Marvel superhero with web-slinging powers.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1}" },
-  { name: "Darth Vader", category: "character", description: "Sith lord from Star Wars.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"villain\":1,\"sci_fi\":1}" },
-  { name: "Luke Skywalker", category: "character", description: "Jedi hero from Star Wars.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Yoda", category: "character", description: "Small Jedi master from Star Wars.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"sci_fi\":1,\"supernatural\":1}" },
-  { name: "Harry Potter", category: "character", description: "Wizard protagonist from the Harry Potter series.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Hermione Granger", category: "character", description: "Brilliant witch from Harry Potter.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Voldemort", category: "character", description: "Dark wizard villain from Harry Potter.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"villain\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Simba", category: "character", description: "Lion king from Disney animation.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Woody", category: "character", description: "Cowboy toy from Toy Story.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1,\"object\":1}" },
-  { name: "Buzz Lightyear", category: "character", description: "Space ranger toy from Toy Story.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1,\"object\":1,\"sci_fi\":1}" },
-  { name: "Elsa", category: "character", description: "Queen with ice powers from Frozen.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Moana", category: "character", description: "Wayfinder heroine from Disney.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"main_character\":1,\"animated\":1}" },
-  { name: "Jack Sparrow", category: "character", description: "Pirate captain from Pirates of the Caribbean.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1}" },
-  { name: "Iron Man", category: "character", description: "Armored Marvel superhero Tony Stark.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Captain America", category: "character", description: "Marvel super soldier hero.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Thanos", category: "character", description: "Marvel cosmic villain.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"villain\":1,\"sci_fi\":1}" },
-  { name: "The Joker", category: "character", description: "Batman villain and chaos enthusiast.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"villain\":1}" },
-  { name: "Batman", category: "character", description: "Gotham detective superhero.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1}" },
-  { name: "Wonder Woman", category: "character", description: "Amazon superhero from DC Comics.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"fantasy\":1}" },
-  { name: "Forrest Gump", category: "character", description: "Kind-hearted film protagonist.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1}" },
-  { name: "The Dude", category: "character", description: "Laid-back protagonist of The Big Lebowski.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1}" },
-  { name: "Tyler Durden", category: "character", description: "Antagonistic figure from Fight Club.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"villain\":1}" },
-  { name: "Princess Leia", category: "character", description: "Rebel leader from Star Wars.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Ellen Ripley", category: "character", description: "Alien franchise survivor.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Indiana Jones", category: "character", description: "Archaeologist adventurer.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"main_character\":1}" },
-  { name: "James Bond", category: "character", description: "British spy and film icon.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1}" },
-  { name: "Katniss Everdeen", category: "character", description: "Archer protagonist from The Hunger Games.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Frodo Baggins", category: "character", description: "Ring bearer from The Lord of the Rings.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1}" },
-  { name: "Gandalf", category: "character", description: "Wizard from Middle-earth.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Gollum", category: "character", description: "Ring-obsessed creature from Middle-earth.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1}" },
-  { name: "Mario", category: "character", description: "Nintendo plumber hero.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1}" },
-  { name: "Luigi", category: "character", description: "Mario brother and reluctant hero.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1}" },
-  { name: "Princess Peach", category: "character", description: "Mushroom Kingdom princess.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_game\":1,\"main_character\":1,\"animated\":1,\"fantasy\":1}" },
-  { name: "Link", category: "character", description: "Hero from The Legend of Zelda.", attributes: "{\"fictional\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"fantasy\":1}" },
-  { name: "Zelda", category: "character", description: "Princess from The Legend of Zelda.", attributes: "{\"fictional\":1,\"female\":1,\"from_game\":1,\"main_character\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Sonic", category: "character", description: "Fast blue hedgehog.", attributes: "{\"fictional\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Pikachu", category: "character", description: "Electric Pokemon mascot.", attributes: "{\"fictional\":1,\"from_game\":1,\"main_character\":1,\"animated\":1,\"animal\":1,\"supernatural\":1}" },
-  { name: "Kratos", category: "character", description: "God-slaying warrior from God of War.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Master Chief", category: "character", description: "Armored supersoldier from Halo.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Lara Croft", category: "character", description: "Tomb-raiding video game adventurer.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_game\":1,\"main_character\":1}" },
-  { name: "Pac-Man", category: "character", description: "Arcade maze icon.", attributes: "{\"fictional\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1}" },
-  { name: "Donkey Kong", category: "character", description: "Nintendo ape.", attributes: "{\"fictional\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Samus Aran", category: "character", description: "Bounty hunter from Metroid.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_game\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Cloud Strife", category: "character", description: "Mercenary hero from Final Fantasy VII.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"main_character\":1,\"fantasy\":1,\"sci_fi\":1}" },
-  { name: "Sephiroth", category: "character", description: "Final Fantasy VII antagonist.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_game\":1,\"villain\":1,\"fantasy\":1,\"sci_fi\":1}" },
-  { name: "Homer Simpson", category: "character", description: "Animated father from The Simpsons.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1}" },
-  { name: "Peter Griffin", category: "character", description: "Animated father from Family Guy.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1}" },
-  { name: "SpongeBob SquarePants", category: "character", description: "Animated sponge from Bikini Bottom.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Patrick Star", category: "character", description: "Animated starfish from SpongeBob.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Jerry Mouse", category: "character", description: "Mouse from Tom and Jerry.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Bugs Bunny", category: "character", description: "Looney Tunes rabbit.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Scooby-Doo", category: "character", description: "Mystery-solving dog.", attributes: "{\"fictional\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Sherlock Holmes", category: "character", description: "Detective from classic fiction.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_book\":1,\"main_character\":1}" },
-  { name: "Wednesday Addams", category: "character", description: "Macabre Addams Family member.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_tv\":1,\"from_movie\":1,\"main_character\":1}" },
-  { name: "Jean-Luc Picard", category: "character", description: "Starfleet captain from Star Trek.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Walter White", category: "character", description: "Chemistry teacher turned criminal.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"main_character\":1,\"villain\":1}" },
-  { name: "Daenerys Targaryen", category: "character", description: "Dragon-riding queen from Game of Thrones.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_tv\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1}" },
-  { name: "Jon Snow", category: "character", description: "Hero from Game of Thrones.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_tv\":1,\"from_book\":1,\"main_character\":1,\"fantasy\":1}" },
-  { name: "Eleven", category: "character", description: "Telekinetic character from Stranger Things.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_tv\":1,\"main_character\":1,\"sci_fi\":1,\"supernatural\":1}" },
-  { name: "Mickey Mouse", category: "character", description: "Disney mouse mascot.", attributes: "{\"fictional\":1,\"male\":1,\"from_movie\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1,\"animal\":1}" },
-  { name: "Albert Einstein", category: "character", description: "Real theoretical physicist.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
-  { name: "Michael Jordan", category: "character", description: "Real basketball legend.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
-  { name: "Elvis Presley", category: "character", description: "Real singer and cultural icon.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
-  { name: "Taylor Swift", category: "character", description: "Real singer-songwriter.", attributes: "{\"human\":1,\"real_living\":1,\"female\":1}" },
-  { name: "LeBron James", category: "character", description: "Real basketball player.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
-  { name: "Beyonce", category: "character", description: "Real singer and performer.", attributes: "{\"human\":1,\"real_living\":1,\"female\":1}" },
-  { name: "Isaac Newton", category: "character", description: "Real physicist and mathematician.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
-  { name: "William Shakespeare", category: "character", description: "Real playwright and poet.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
-  { name: "Abraham Lincoln", category: "character", description: "Real U.S. president.", attributes: "{\"human\":1,\"real_living\":1,\"male\":1}" },
-  { name: "Cleopatra", category: "character", description: "Real queen of ancient Egypt.", attributes: "{\"human\":1,\"real_living\":1,\"female\":1}" },
-  { name: "Mona Lisa", category: "object", description: "Famous portrait painting.", attributes: "{\"object\":1}" },
-  { name: "Golden Snitch", category: "object", description: "Flying ball from Quidditch.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "One Ring", category: "object", description: "Powerful ring from The Lord of the Rings.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Lightsaber", category: "object", description: "Energy sword from Star Wars.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"sci_fi\":1}" },
-  { name: "Death Star", category: "object", description: "Planet-destroying space station.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"sci_fi\":1}" },
-  { name: "TARDIS", category: "object", description: "Time-traveling police box from Doctor Who.", attributes: "{\"fictional\":1,\"object\":1,\"from_tv\":1,\"sci_fi\":1}" },
-  { name: "Mjolnir", category: "object", description: "Thor hammer from Norse myth and Marvel.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_comic\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Infinity Gauntlet", category: "object", description: "Marvel artifact for Infinity Stones.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_comic\":1,\"sci_fi\":1,\"supernatural\":1}" },
-  { name: "Sorting Hat", category: "object", description: "Talking hat from Harry Potter.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Flux Capacitor", category: "object", description: "Time travel device from Back to the Future.", attributes: "{\"fictional\":1,\"object\":1,\"from_movie\":1,\"sci_fi\":1}" },
-  { name: "Niffler", category: "character", description: "Treasure-loving magical creature.", attributes: "{\"fictional\":1,\"from_movie\":1,\"from_book\":1,\"animal\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Grass", category: "object", description: "Common real plant ground cover.", attributes: "{\"real_living\":1}" },
-  { name: "Pizza", category: "object", description: "Popular food.", attributes: "{\"object\":1,\"food\":1}" },
-  { name: "Coffee", category: "object", description: "Caffeinated drink.", attributes: "{\"object\":1,\"food\":1}" },
-  { name: "Hogwarts", category: "place", description: "Wizarding school from Harry Potter.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Narnia", category: "place", description: "Fantasy world reached through a wardrobe.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Mordor", category: "place", description: "Dark realm in Middle-earth.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1}" },
-  { name: "Wakanda", category: "place", description: "Fictional African nation from Marvel.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_comic\":1,\"sci_fi\":1}" },
-  { name: "Atlantis", category: "place", description: "Legendary underwater city.", attributes: "{\"fictional\":1,\"place\":1,\"fantasy\":1}" },
-  { name: "Gotham City", category: "place", description: "Batman home city.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_comic\":1}" },
-  { name: "Metropolis", category: "place", description: "Superman home city.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_comic\":1}" },
-  { name: "Middle-earth", category: "place", description: "Fantasy setting of Tolkien stories.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1}" },
-  { name: "Bikini Bottom", category: "place", description: "Undersea town from SpongeBob.", attributes: "{\"fictional\":1,\"place\":1,\"from_tv\":1,\"animated\":1}" },
-  { name: "Springfield", category: "place", description: "Home city of The Simpsons.", attributes: "{\"fictional\":1,\"place\":1,\"from_tv\":1,\"animated\":1}" },
-  { name: "Jurassic Park", category: "place", description: "Dinosaur theme park setting.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"sci_fi\":1}" },
-  { name: "Emerald City", category: "place", description: "Capital city in Oz.", attributes: "{\"fictional\":1,\"place\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1}" },
-  { name: "Death Valley", category: "place", description: "Real desert valley in the United States.", attributes: "{\"place\":1}" },
-  { name: "Mount Everest", category: "place", description: "Real highest mountain on Earth.", attributes: "{\"place\":1}" },
-  { name: "Superman", category: "character", description: "DC superhero from Krypton.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Dumbledore", category: "character", description: "Headmaster wizard from Harry Potter.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_book\":1,\"fantasy\":1,\"supernatural\":1}" },
-  { name: "Black Panther", category: "character", description: "Marvel hero and king of Wakanda.", attributes: "{\"fictional\":1,\"human\":1,\"male\":1,\"from_movie\":1,\"from_comic\":1,\"main_character\":1,\"sci_fi\":1}" },
-  { name: "Dora the Explorer", category: "character", description: "Animated child explorer from TV.", attributes: "{\"fictional\":1,\"human\":1,\"female\":1,\"from_tv\":1,\"main_character\":1,\"animated\":1}" },
-  { name: "Coca-Cola", category: "object", description: "Popular soft drink.", attributes: "{\"object\":1,\"food\":1}" },
-];
 
 export function json(data: unknown, status = 200) {
   return Response.json(data, {
@@ -244,6 +149,7 @@ export async function createSession(env: Env, mode: GameMode = "ai-thinks", cate
     mode: safeMode,
     character,
     category: safeMode === "you-think" ? safeCategory : "",
+    domain: safeMode === "you-think" ? normalizeCategory(safeCategory) : "",
     history: [],
     questionsLeft: MAX_QUESTIONS,
     gameOver: false,
@@ -263,6 +169,7 @@ export async function getSession(env: Env, sessionId: unknown): Promise<GameSess
       ...session,
       mode: session.mode ?? "ai-thinks",
       category: session.category ?? "",
+      domain: session.domain ?? normalizeCategory(session.category ?? ""),
       tarsMemory: session.tarsMemory ?? "",
       actualAnswer: session.actualAnswer ?? undefined,
       finalGuess: session.finalGuess ?? undefined
@@ -406,6 +313,10 @@ ${historyText(session)}`;
   return verifyGraphGuess(guess, candidates);
 }
 
+export async function hasViableGraphCandidates(env: Env, session: GameSession) {
+  return (await getGraphCandidates(env, session)).length > 0;
+}
+
 async function askGraphQuestion(env: Env, session: GameSession, latestAnswer?: string): Promise<GraphQuestionResult | null> {
   const candidates = await getGraphCandidates(env, session);
   if (candidates.length === 0) return null;
@@ -429,64 +340,89 @@ async function askGraphQuestion(env: Env, session: GameSession, latestAnswer?: s
   return { text, attributeKey: bestQuestion.attribute_key };
 }
 
-async function getGraphCandidates(env: Env, session: GameSession): Promise<CharacterCandidate[]> {
+async function getGraphCandidates(env: Env, session: GameSession): Promise<EntityCandidate[]> {
   if (!env.GAMES_DB) return [];
 
   try {
     await ensureGraphTables(env);
-    const category = normalizeCategory(session.category);
-    const query = category
-      ? `SELECT id, name, category, description, attributes FROM characters WHERE category = ? ORDER BY name`
-      : `SELECT id, name, category, description, attributes FROM characters ORDER BY name`;
-    const statement = env.GAMES_DB.prepare(query);
-    const { results } = category ? await statement.bind(category).all<CharacterRow>() : await statement.all<CharacterRow>();
-    const filters = graphFiltersFromHistory(session);
+    const domain = normalizeCategory(session.domain || session.category);
+    const { results } = await env.GAMES_DB.prepare(
+      `SELECT e.id, e.canonical_name, e.domain, e.description
+       FROM entities e
+       WHERE e.domain = ? OR ? = ''
+       ORDER BY e.canonical_name`
+    )
+      .bind(domain, domain)
+      .all<EntityRow>();
 
-    return (results || [])
-      .map(toCandidate)
-      .filter((candidate): candidate is CharacterCandidate => Boolean(candidate))
-      .filter((candidate) =>
-        filters.every((filter) => {
-          const value = candidate.attributes[filter.attributeKey] ?? 0;
-          return value === filter.value;
-        })
-      );
+    const filters = graphFiltersFromHistory(session);
+    const candidates = await Promise.all((results || []).map((row) => toCandidate(env, row)));
+
+    return candidates
+      .filter((candidate): candidate is EntityCandidate => Boolean(candidate))
+      .filter((candidate) => filters.every((filter) => assertionMatchesAnswer(candidate.attributes[filter.attributeKey], filter.value)));
   } catch {
     return [];
   }
 }
 
-async function chooseBestGraphQuestion(env: Env, session: GameSession, candidates: CharacterCandidate[]) {
+async function chooseBestGraphQuestion(env: Env, session: GameSession, candidates: EntityCandidate[]) {
   const asked = new Set(session.history.map((item) => item.attributeKey).filter(Boolean));
-  const category = normalizeCategory(session.category);
+  const domain = normalizeCategory(session.domain || session.category);
+  const candidateIds = candidates.map((candidate) => candidate.id);
+  if (candidateIds.length === 0) return null;
 
-  const statement = category
-    ? env.GAMES_DB.prepare(
-        `SELECT id, text, attribute_key, category, priority
-         FROM questions
-         WHERE (category IS NULL OR category = ?)
-         ORDER BY priority DESC, id ASC`
-      )
-    : env.GAMES_DB.prepare(
-        `SELECT id, text, attribute_key, category, priority
-         FROM questions
-         ORDER BY priority DESC, id ASC`
-      );
-  const { results } = category ? await statement.bind(category).all<QuestionRow>() : await statement.all<QuestionRow>();
+  const placeholders = candidateIds.map(() => "?").join(", ");
+  const { results: distributionRows } = await env.GAMES_DB.prepare(
+    `SELECT a.key AS attribute_key,
+       SUM(CASE WHEN aa.value = 'yes' THEN 1 ELSE 0 END) AS yes_count,
+       SUM(CASE WHEN aa.value = 'no' THEN 1 ELSE 0 END) AS no_count,
+       SUM(CASE WHEN aa.value = 'kind_of' THEN 1 ELSE 0 END) AS kind_of_count
+     FROM attribute_assertions aa
+     JOIN attributes a ON aa.attribute_id = a.id
+     WHERE aa.entity_id IN (${placeholders})
+       AND aa.value IN ('yes', 'no', 'kind_of')
+     GROUP BY a.key`
+  )
+    .bind(...candidateIds)
+    .all<{ attribute_key: string; yes_count: number; no_count: number; kind_of_count: number }>();
+
+  const distributions = new Map(
+    (distributionRows || []).map((row) => [
+      row.attribute_key,
+      {
+        yes: Number(row.yes_count || 0),
+        no: Number(row.no_count || 0),
+        kindOf: Number(row.kind_of_count || 0)
+      }
+    ])
+  );
+
+  const statement = env.GAMES_DB.prepare(
+    `SELECT qt.id, qt.template AS text, a.key AS attribute_key, a.applies_to AS category, qt.quality_score AS priority
+     FROM question_templates qt
+     JOIN attributes a ON qt.attribute_id = a.id
+     WHERE ? = ''
+       OR a.applies_to = '[]'
+       OR a.applies_to LIKE ?
+     ORDER BY qt.quality_score DESC, qt.id ASC`
+  );
+  const { results } = await statement.bind(domain, `%"${domain}"%`).all<QuestionRow>();
 
   let best: QuestionRow | null = null;
-  let bestScore = Number.POSITIVE_INFINITY;
+  let bestScore = Number.NEGATIVE_INFINITY;
 
   for (const question of results || []) {
     if (asked.has(question.attribute_key)) continue;
-    const yesCount = candidates.filter((candidate) => (candidate.attributes[question.attribute_key] ?? 0) === 1).length;
-    const noCount = candidates.length - yesCount;
-    if (yesCount === 0 || noCount === 0) continue;
+    const distribution = distributions.get(question.attribute_key);
+    if (!distribution) continue;
 
-    const splitDistance = Math.abs(yesCount - noCount) / candidates.length;
-    const priorityBonus = (question.priority || 0) / 10000;
-    const score = splitDistance - priorityBonus;
-    if (score < bestScore) {
+    const yesWeight = distribution.yes + distribution.kindOf * 0.5;
+    const noWeight = distribution.no + distribution.kindOf * 0.5;
+    if (yesWeight <= 0 || noWeight <= 0) continue;
+
+    const score = entropy(yesWeight, noWeight) + Number(question.priority || 0) / 100;
+    if (score > bestScore) {
       best = question;
       bestScore = score;
     }
@@ -530,7 +466,7 @@ Ask the next question.`
   }
 }
 
-async function phraseGraphGuess(env: Env, session: GameSession, candidate: CharacterCandidate) {
+async function phraseGraphGuess(env: Env, session: GameSession, candidate: EntityCandidate) {
   try {
     const response = await env.AI.run(env.LLM_MODEL ?? LLM_MODEL, {
       messages: [
@@ -559,46 +495,135 @@ ${historyText(session)}`
 
 async function ensureGraphTables(env: Env) {
   await env.GAMES_DB.prepare(
-    `CREATE TABLE IF NOT EXISTS characters (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      category TEXT NOT NULL DEFAULT 'character',
-      description TEXT,
-      attributes TEXT NOT NULL DEFAULT '{}',
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    `CREATE TABLE IF NOT EXISTS dataset_versions (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      source_summary TEXT,
+      entity_count INTEGER NOT NULL,
+      assertion_count INTEGER NOT NULL,
+      question_count INTEGER NOT NULL,
+      validation_status TEXT NOT NULL,
+      validation_report_json TEXT,
+      notes TEXT
     )`
   ).run();
 
   await env.GAMES_DB.prepare(
-    `CREATE TABLE IF NOT EXISTS questions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      text TEXT NOT NULL UNIQUE,
-      attribute_key TEXT NOT NULL,
-      category TEXT,
-      priority INTEGER DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    `CREATE TABLE IF NOT EXISTS entities (
+      id TEXT PRIMARY KEY,
+      canonical_name TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      description TEXT,
+      popularity_prior REAL DEFAULT 0.5,
+      source_refs_json TEXT DEFAULT '{}',
+      dataset_version_id TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`
   ).run();
 
-  const { results: characterResults } = await env.GAMES_DB.prepare(`SELECT COUNT(*) AS count FROM characters`).all<{ count: number }>();
-  if ((characterResults?.[0]?.count || 0) === 0) {
-    const characterStatements = DEFAULT_GRAPH_CHARACTERS.map((character) =>
-      env.GAMES_DB.prepare(
-        `INSERT OR IGNORE INTO characters (name, category, description, attributes)
-         VALUES (?, ?, ?, ?)`
-      ).bind(character.name, character.category, character.description, character.attributes)
-    );
-    await env.GAMES_DB.batch(characterStatements);
-  }
+  await env.GAMES_DB.prepare(
+    `CREATE TABLE IF NOT EXISTS aliases (
+      entity_id TEXT NOT NULL,
+      alias TEXT NOT NULL,
+      language TEXT DEFAULT 'en',
+      source TEXT,
+      PRIMARY KEY (entity_id, alias)
+    )`
+  ).run();
 
-  const { results } = await env.GAMES_DB.prepare(`SELECT COUNT(*) AS count FROM questions`).all<{ count: number }>();
+  await env.GAMES_DB.prepare(
+    `CREATE TABLE IF NOT EXISTS categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      parent_id TEXT,
+      source_refs_json TEXT DEFAULT '{}'
+    )`
+  ).run();
+
+  await env.GAMES_DB.prepare(
+    `CREATE TABLE IF NOT EXISTS entity_categories (
+      entity_id TEXT NOT NULL,
+      category_id TEXT NOT NULL,
+      confidence REAL DEFAULT 1.0,
+      PRIMARY KEY (entity_id, category_id)
+    )`
+  ).run();
+
+  await env.GAMES_DB.prepare(
+    `CREATE TABLE IF NOT EXISTS attributes (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      applies_to TEXT NOT NULL DEFAULT '[]',
+      answer_type TEXT DEFAULT 'yes_no_kind_of',
+      ambiguity_risk TEXT DEFAULT 'low'
+    )`
+  ).run();
+
+  await env.GAMES_DB.prepare(
+    `CREATE TABLE IF NOT EXISTS attribute_assertions (
+      entity_id TEXT NOT NULL,
+      attribute_id TEXT NOT NULL,
+      value TEXT NOT NULL,
+      numeric_value REAL,
+      confidence REAL DEFAULT 0.5,
+      source_type TEXT NOT NULL,
+      source_refs_json TEXT DEFAULT '{}',
+      review_status TEXT DEFAULT 'unreviewed',
+      user_truth_distribution_json TEXT,
+      dataset_version_id TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (entity_id, attribute_id, source_type)
+    )`
+  ).run();
+
+  await env.GAMES_DB.prepare(
+    `CREATE TABLE IF NOT EXISTS question_templates (
+      id TEXT PRIMARY KEY,
+      attribute_id TEXT NOT NULL,
+      template TEXT NOT NULL,
+      ask_stage TEXT DEFAULT '["mid_game"]',
+      quality_score REAL DEFAULT 0.5
+    )`
+  ).run();
+
+  await env.GAMES_DB.prepare(
+    `CREATE TABLE IF NOT EXISTS game_observations (
+      game_id TEXT NOT NULL,
+      turn_number INTEGER NOT NULL,
+      entity_id TEXT,
+      attribute_id TEXT,
+      user_answer TEXT,
+      confidence_before REAL,
+      confidence_after REAL,
+      PRIMARY KEY (game_id, turn_number)
+    )`
+  ).run();
+
+  const attributeStatements = DEFAULT_GRAPH_QUESTIONS.map((question) =>
+    env.GAMES_DB.prepare(
+      `INSERT OR IGNORE INTO attributes (id, key, display_name, applies_to, answer_type, ambiguity_risk)
+       VALUES (?, ?, ?, ?, 'yes_no_kind_of', 'low')`
+    ).bind(`attr:${question.attributeKey}`, question.attributeKey, attributeDisplayName(question.attributeKey), JSON.stringify(question.category ? [question.category] : []))
+  );
+  await env.GAMES_DB.batch(attributeStatements);
+
+  const { results } = await env.GAMES_DB.prepare(`SELECT COUNT(*) AS count FROM question_templates`).all<{ count: number }>();
   if ((results?.[0]?.count || 0) > 0) return;
 
   const statements = DEFAULT_GRAPH_QUESTIONS.map((question) =>
     env.GAMES_DB.prepare(
-      `INSERT OR IGNORE INTO questions (text, attribute_key, category, priority)
-       VALUES (?, ?, ?, ?)`
-    ).bind(question.text, question.attributeKey, question.category || null, question.priority)
+      `INSERT OR IGNORE INTO question_templates (id, attribute_id, template, ask_stage, quality_score)
+       VALUES (?, ?, ?, ?, ?)`
+    ).bind(
+      `qt:${question.attributeKey}:fallback`,
+      `attr:${question.attributeKey}`,
+      question.text,
+      JSON.stringify(["mid_game"]),
+      question.priority / 100
+    )
   );
   await env.GAMES_DB.batch(statements);
 }
@@ -607,7 +632,7 @@ function graphFiltersFromHistory(session: GameSession) {
   return session.history
     .map((item) => {
       if (!item.attributeKey || !item.answer) return null;
-      const value = answerToBinary(item.answer);
+      const value = answerToNumeric(item.answer);
       return value === null ? null : { attributeKey: item.attributeKey, value };
     })
     .filter((filter): filter is { attributeKey: string; value: number } => Boolean(filter));
@@ -617,27 +642,67 @@ function countAnsweredGraphQuestions(session: GameSession) {
   return session.history.filter((item) => item.attributeKey && item.answer).length;
 }
 
-function answerToBinary(answer: string) {
+export function answerToNumeric(answer: string) {
   const normalized = answer.trim().toLowerCase();
-  if (normalized === "yes" || normalized === "kind of" || normalized === "sort of") return 1;
+  if (normalized === "yes") return 1;
+  if (normalized === "kind of" || normalized === "sort of") return 0.5;
   if (normalized === "no" || normalized === "not exactly") return 0;
   return null;
 }
 
-function toCandidate(row: CharacterRow): CharacterCandidate | null {
-  try {
-    const parsed = JSON.parse(row.attributes || "{}");
-    if (!parsed || typeof parsed !== "object") return null;
-    return {
-      id: row.id,
-      name: row.name,
-      category: row.category,
-      description: row.description,
-      attributes: parsed as Record<string, number>
-    };
-  } catch {
-    return null;
-  }
+async function toCandidate(env: Env, row: EntityRow): Promise<EntityCandidate | null> {
+  const { results } = await env.GAMES_DB.prepare(
+    `SELECT aa.entity_id, aa.attribute_id, a.key AS attribute_key, aa.value, aa.numeric_value, aa.confidence
+     FROM attribute_assertions aa
+     JOIN attributes a ON aa.attribute_id = a.id
+     WHERE aa.entity_id = ?
+       AND aa.value != 'unknown'`
+  )
+    .bind(row.id)
+    .all<AssertionRow>();
+
+  const attributes = Object.fromEntries(
+    (results || [])
+      .map((assertion) => [assertion.attribute_key, assertion.numeric_value ?? assertionValueToNumeric(assertion.value)])
+      .filter((entry): entry is [string, number] => typeof entry[1] === "number")
+  );
+
+  return {
+    ...row,
+    name: row.canonical_name,
+    attributes
+  };
+}
+
+function assertionValueToNumeric(value: string) {
+  if (value === "yes") return 1;
+  if (value === "kind_of") return 0.5;
+  if (value === "no") return 0;
+  return null;
+}
+
+function assertionMatchesAnswer(assertionValue: number | undefined, answerValue: number) {
+  if (answerValue === 0.5) return assertionValue === 1 || assertionValue === 0.5;
+  if (answerValue === 1) return assertionValue === 1 || assertionValue === 0.5;
+  return assertionValue === 0 || assertionValue === undefined;
+}
+
+function entropy(yesWeight: number, noWeight: number) {
+  const total = yesWeight + noWeight;
+  if (total <= 0) return 0;
+  const yesProbability = yesWeight / total;
+  const noProbability = noWeight / total;
+  return [yesProbability, noProbability].reduce((sum, probability) => {
+    if (probability <= 0) return sum;
+    return sum - probability * Math.log2(probability);
+  }, 0);
+}
+
+function attributeDisplayName(attributeKey: string) {
+  return attributeKey
+    .replace(/^is_/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function normalizeCategory(category: string) {
@@ -653,7 +718,7 @@ function extractGuessName(guess: string) {
   return guess.split(/[.!?\n]/)[0]?.trim();
 }
 
-function verifyGraphGuess(guess: string, candidates: CharacterCandidate[]) {
+function verifyGraphGuess(guess: string, candidates: EntityCandidate[]) {
   if (candidates.length === 0) return guess;
 
   const guessedName = normalize(extractGuessName(guess) || "");

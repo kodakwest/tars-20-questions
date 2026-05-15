@@ -1,4 +1,19 @@
-import { answerQuestion, askYouThinkQuestion, getSession, guessYouThinkAnswer, json, logGame, lossMessage, readBody, saveSession, tts, type Env } from "./_game";
+import {
+  answerQuestion,
+  answerToNumeric,
+  askYouThinkQuestion,
+  getSession,
+  guessYouThinkAnswer,
+  hasViableGraphCandidates,
+  json,
+  logGame,
+  lossMessage,
+  readBody,
+  saveSession,
+  tts,
+  type Env,
+  type GameSession
+} from "./_game";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const body = await readBody<{ action?: unknown; answer?: unknown; question?: unknown; sessionId?: unknown }>(request);
@@ -35,13 +50,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (session.mode === "you-think") {
     const isStart = body.action === "start" || session.history.length === 0;
     if (!isStart && !["yes", "no", "kind of", "sort of", "not exactly"].includes(userAnswer)) {
-      return json({ error: "Answer must be yes or no." }, 400);
+      return json({ error: "Answer must be yes, no, kind of, sort of, or not exactly." }, 400);
     }
 
     if (!isStart) {
       const previous = session.history[session.history.length - 1];
       if (previous && !previous.answer) {
         previous.answer = userAnswer;
+        const contradiction = repeatedAnswerContradiction(session, previous, userAnswer);
+        const hasCandidates = contradiction ? true : await hasViableGraphCandidates(env, session);
+        if (contradiction || !hasCandidates) {
+          previous.answer = "";
+          const answer =
+            contradiction ||
+            "That answer eliminates every candidate in the current dataset. Try the last one again; even my database has limits.";
+          await saveSession(env, session);
+          const audioBase64 = await tts(env, answer);
+
+          return json({
+            answer,
+            audioBase64,
+            questionsLeft: session.questionsLeft,
+            gameOver: false,
+            won: false,
+            contradiction: true
+          });
+        }
       }
     }
 
@@ -104,6 +138,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     character: session.gameOver ? session.character : undefined
   });
 };
+
+function repeatedAnswerContradiction(session: GameSession, previous: { attributeKey?: string }, answer: string) {
+  if (!previous.attributeKey) return "";
+  const currentValue = answerToNumeric(answer);
+  if (currentValue === null || currentValue === 0.5) return "";
+
+  const conflicting = session.history.find((item) => {
+    if (item === previous || item.attributeKey !== previous.attributeKey || !item.answer) return false;
+    const priorValue = answerToNumeric(item.answer);
+    return priorValue !== null && priorValue !== 0.5 && priorValue !== currentValue;
+  });
+
+  return conflicting ? "That contradicts an earlier answer to the same attribute. Re-answer the last question." : "";
+}
 
 function extractFinalGuess(answer: string) {
   const withoutPrefix = answer.replace(/^final guess:\s*/i, "").trim();
