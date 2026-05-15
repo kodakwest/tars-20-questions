@@ -280,19 +280,9 @@ Latest answer: ${latestAnswer || "Ready."}`;
 
 export async function guessYouThinkAnswer(env: Env, session: GameSession) {
   const candidates = await getGraphCandidates(env, session);
-  const candidateText =
-    candidates.length > 0
-      ? candidates
-          .slice(0, 5)
-          .map((candidate, index) => `${index + 1}. ${candidate.name} (${candidate.category}) - ${candidate.description || "No dossier."}`)
-          .join("\n")
-      : "No graph candidates remain. Infer from the Q&A without pretending the database helped.";
-
-  const prompt = `You are TARS. Final guess based on this Q&A and candidate list.
-Pick the best candidate if one fits. One line, dry delivery. Start with "Final guess:".
-
-Candidates:
-${candidateText}
+  const prompt = `You are TARS playing 20 Questions in reverse. You need to make a final guess.
+Based on the Q&A so far, who or what is the player thinking of?
+Use what you know about characters. One line, dry delivery. Start with your guess.
 
 Q&A:
 ${historyText(session)}`;
@@ -306,7 +296,8 @@ ${historyText(session)}`;
     temperature: 0.7
   });
 
-  return extractText(response) || "Final guess: a toaster. My confidence is low, but my delivery remains excellent.";
+  const guess = extractText(response) || "A toaster. My confidence is low, but my delivery remains excellent.";
+  return verifyGraphGuess(guess, candidates);
 }
 
 async function askGraphQuestion(env: Env, session: GameSession, latestAnswer?: string): Promise<GraphQuestionResult | null> {
@@ -410,17 +401,16 @@ async function phraseGraphQuestion(
       messages: [
         {
           role: "system",
-          content: `You are TARS playing 20 Questions in reverse.
-Keep the exact yes/no meaning of the provided question.
-Under 15 words plus one short dry quip. Do not answer it.`
+          content: `You are TARS playing 20 Questions in reverse. Ask a natural yes/no question to narrow down what the player is thinking of.
+You need to figure out: ${question.text}
+Remaining possibilities: ${candidateCount}
+Q&A so far: ${historyText(session)}
+Keep it under 15 words plus one short dry quip.`
         },
         {
           role: "user",
-          content: `Base question: ${question.text}
-Remaining candidates: ${candidateCount}
-Latest answer: ${latestAnswer || "Ready."}
-Q&A so far:
-${historyText(session)}`
+          content: `Latest answer: ${latestAnswer || "Ready."}
+Ask the next question.`
         }
       ],
       max_tokens: 60,
@@ -540,7 +530,27 @@ function normalizeCategory(category: string) {
 
 function extractGuessName(guess: string) {
   const match = guess.match(/final guess:\s*([^.!?\n]+)/i);
-  return match?.[1]?.trim();
+  if (match?.[1]) return match[1].trim();
+  return guess.split(/[.!?\n]/)[0]?.trim();
+}
+
+function verifyGraphGuess(guess: string, candidates: CharacterCandidate[]) {
+  if (candidates.length === 0) return guess;
+
+  const guessedName = normalize(extractGuessName(guess) || "");
+  if (!guessedName) return guess;
+  const verified = candidates.find((candidate) => {
+    const candidateName = normalize(candidate.name);
+    return candidateName === guessedName || candidateName.includes(guessedName) || guessedName.includes(candidateName);
+  });
+  if (!verified) return guess;
+
+  const trailing = guess.replace(/^final guess:\s*/i, "").replace(new RegExp(`^${escapeRegExp(extractGuessName(guess) || "")}\\s*`, "i"), "").trim();
+  return trailing ? `${verified.name} ${trailing}` : verified.name;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export async function logGame(env: Env, session: GameSession) {

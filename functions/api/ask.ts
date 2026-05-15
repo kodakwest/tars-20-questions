@@ -9,6 +9,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!session) return json({ error: "Unknown session. Start a new game." }, 404);
   if (session.gameOver) {
     if (session.mode === "you-think") {
+      if (session.finalGuess) {
+        await logGame(env, session);
+      }
+
       return json({
         answer: "Game over. My final guess already left the airlock.",
         audioBase64: "",
@@ -44,7 +48,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     let answer: string;
     if (!isStart && session.questionsLeft <= 0) {
       answer = await guessYouThinkAnswer(env, session);
-      session.finalGuess = answer;
+      session.finalGuess = extractFinalGuess(answer);
+      session.gameOver = true;
+      await logGame(env, session);
     } else {
       session.questionsLeft -= 1;
       const graphQuestion = await askYouThinkQuestion(env, session, isStart ? undefined : userAnswer);
@@ -96,3 +102,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     character: session.gameOver ? session.character : undefined
   });
 };
+
+function extractFinalGuess(answer: string) {
+  const withoutPrefix = answer.replace(/^final guess:\s*/i, "").trim();
+  return withoutPrefix.split(/[.!?\n]/)[0]?.trim() || answer;
+}

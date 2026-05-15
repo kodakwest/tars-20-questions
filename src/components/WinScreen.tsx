@@ -51,7 +51,7 @@ export function WinScreen({ log, mode, result, onPlayAgain }: WinScreenProps) {
         <button
           className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded bg-signal px-5 font-display font-semibold text-slate-950 hover:bg-emerald-200"
           type="button"
-          onClick={onPlayAgain}
+          onClick={() => onPlayAgain()}
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
           Play Again
