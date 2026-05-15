@@ -7,7 +7,11 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "check": "tsc -b"
+    "check": "tsc -b",
+    "check:scripts": "tsc -p tsconfig.scripts.json",
+    "dataset:build": "tsx scripts/build-dataset.ts",
+    "dataset:validate": "tsx scripts/validate-dataset.ts",
+    "dataset:simulate": "tsx scripts/simulate-games.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.0",
@@ -19,9 +23,11 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260514.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^25.8.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0",
+    "tsx": "^4.22.0",
     "typescript": "^6.0.0",
     "wrangler": "^4.16.0"
   }
