@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
+import type { PersistedGame } from "../gamePersistence";
 import type { GameMode } from "../types";
+import { ResumeGamePrompt } from "./ResumeGamePrompt";
 
 type StartScreenProps = {
+  savedGame: PersistedGame | null;
+  onDiscardSavedGame: () => void;
+  onResume: (game: PersistedGame) => void;
   onStart: (mode: GameMode) => void;
   voiceName?: string;
   setVoiceName: (name: string | undefined) => void;
@@ -17,7 +22,7 @@ function prewarmSpeechSynthesis() {
   } catch {}
 }
 
-export function StartScreen({ onStart, voiceName, setVoiceName }: StartScreenProps) {
+export function StartScreen({ savedGame, onDiscardSavedGame, onResume, onStart, voiceName, setVoiceName }: StartScreenProps) {
   const [mode, setMode] = useState<GameMode>("ai-thinks");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
@@ -73,6 +78,10 @@ export function StartScreen({ onStart, voiceName, setVoiceName }: StartScreenPro
         <h1 className="mt-2 font-display text-4xl font-bold leading-none text-signal min-[390px]:text-5xl sm:mt-3 sm:text-6xl">
           TARS 20 Questions
         </h1>
+
+        {savedGame && (
+          <ResumeGamePrompt game={savedGame} onDiscard={onDiscardSavedGame} onResume={onResume} />
+        )}
 
         {/* Mode selector */}
         <div className="mt-5 grid w-full grid-cols-2 rounded border border-slate-700 bg-slate-950/80 p-1 sm:mt-7">

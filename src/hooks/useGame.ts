@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { clearSavedGame, saveGame, type PersistedGame } from "../gamePersistence";
 import type {
   AskResponse,
   ConfirmGuessResponse,
@@ -93,6 +94,7 @@ export function useGame() {
   const latestAudio = useRef<string | undefined>(undefined);
   const currentAudio = useRef<HTMLAudioElement | null>(null);
   const speakingTimeout = useRef<number | null>(null);
+  const currentQuestion = Math.min(MAX_QUESTIONS, Math.max(1, MAX_QUESTIONS - questionsLeft + 1));
 
   const cancelSpeech = useCallback(() => {
     try {
@@ -180,11 +182,13 @@ export function useGame() {
   }, [cancelSpeech, voiceMode, voiceName]);
 
   const newGame = useCallback(async (nextMode = mode) => {
+    clearSavedGame();
     setIsLoading(true);
     setError(null);
     setResult(null);
     setPendingFinalGuess(false);
     setLog([]);
+    setSessionId(null);
     setQuestionsLeft(MAX_QUESTIONS);
     setMode(nextMode);
 
@@ -206,6 +210,37 @@ export function useGame() {
     setStarted(true);
     void newGame(nextMode);
   }, [newGame]);
+
+  const resume = useCallback((saved: PersistedGame) => {
+    cancelSpeech();
+    setStarted(true);
+    setSessionId(saved.sessionId);
+    setMode(saved.mode);
+    setLog(saved.log);
+    setQuestionsLeft(saved.questionsLeft);
+    setVoiceMode(saved.voiceMode);
+    setVoiceName(saved.voiceName);
+    setResult(saved.result);
+    setPendingFinalGuess(saved.pendingFinalGuess);
+    setError(null);
+    setIsLoading(false);
+  }, [cancelSpeech]);
+
+  useEffect(() => {
+    if (!started || !sessionId) return;
+
+    saveGame({
+      sessionId,
+      mode,
+      log,
+      questionsLeft,
+      currentQuestion,
+      voiceMode,
+      voiceName,
+      result,
+      pendingFinalGuess
+    });
+  }, [currentQuestion, log, mode, pendingFinalGuess, questionsLeft, result, sessionId, started, voiceMode, voiceName]);
 
   const ask = useCallback(
     async (question: string) => {
@@ -388,6 +423,7 @@ export function useGame() {
       questionsLeft,
       replayLastAudio,
       result,
+      resume,
       sessionId,
       setVoiceName,
       start,
@@ -396,6 +432,6 @@ export function useGame() {
       voiceMode,
       voiceName
     }),
-    [answerYouThink, ask, error, guess, confirmGuess, cancelSpeech, isLoading, isSpeaking, listenTrigger, log, mode, newGame, onToggleVoice, pendingFinalGuess, questionsLeft, replayLastAudio, result, sessionId, start, startYouThinkQuestions, started, voiceMode, voiceName]
+    [answerYouThink, ask, error, guess, confirmGuess, cancelSpeech, isLoading, isSpeaking, listenTrigger, log, mode, newGame, onToggleVoice, pendingFinalGuess, questionsLeft, replayLastAudio, result, resume, sessionId, start, startYouThinkQuestions, started, voiceMode, voiceName]
   );
 }

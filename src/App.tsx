@@ -1,9 +1,33 @@
+import { useEffect, useState } from "react";
 import { GameBoard } from "./components/GameBoard";
 import { StartScreen } from "./components/StartScreen";
+import { clearSavedGame, isSavedGameStorageEvent, loadSavedGame, type PersistedGame } from "./gamePersistence";
 import { useGame } from "./hooks/useGame";
 
 export default function App() {
   const game = useGame();
+  const [savedGame, setSavedGame] = useState<PersistedGame | null>(() => loadSavedGame());
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (isSavedGameStorageEvent(event)) {
+        setSavedGame(loadSavedGame());
+      }
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const handleResume = (saved: PersistedGame) => {
+    game.resume(saved);
+    setSavedGame(null);
+  };
+
+  const handleDiscardSavedGame = () => {
+    clearSavedGame();
+    setSavedGame(null);
+  };
 
   return (
     <main className="min-h-screen min-h-svh overflow-x-hidden overscroll-none bg-void text-slate-100">
@@ -12,7 +36,14 @@ export default function App() {
       {game.started ? (
         <GameBoard key={game.sessionId ?? "pending-game"} {...game} />
       ) : (
-        <StartScreen onStart={game.start} voiceName={game.voiceName} setVoiceName={game.setVoiceName} />
+        <StartScreen
+          savedGame={savedGame}
+          onDiscardSavedGame={handleDiscardSavedGame}
+          onResume={handleResume}
+          onStart={game.start}
+          voiceName={game.voiceName}
+          setVoiceName={game.setVoiceName}
+        />
       )}
     </main>
   );

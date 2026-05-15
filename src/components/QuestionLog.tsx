@@ -1,18 +1,20 @@
-import { useEffect, useRef } from "react";
+import { useEffect, type RefObject } from "react";
 import type { LogEntry } from "../types";
 import { TarsResponse } from "./TarsResponse";
 
 type QuestionLogProps = {
   entries: LogEntry[];
+  footerHeight: number;
   isLoading: boolean;
+  scrollContainerRef: RefObject<HTMLDivElement | null>;
 };
 
-export function QuestionLog({ entries, isLoading }: QuestionLogProps) {
-  const endRef = useRef<HTMLDivElement>(null);
-
+export function QuestionLog({ entries, footerHeight, isLoading, scrollContainerRef }: QuestionLogProps) {
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
-  }, [entries, isLoading]);
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [entries, footerHeight, isLoading, scrollContainerRef]);
 
   return (
     <section className="min-h-0 flex-1 px-4 py-5 sm:px-6" aria-label="Question history">
@@ -33,7 +35,6 @@ export function QuestionLog({ entries, isLoading }: QuestionLogProps) {
             TARS is judging the phrasing.
           </div>
         )}
-        <div ref={endRef} />
       </div>
     </section>
   );

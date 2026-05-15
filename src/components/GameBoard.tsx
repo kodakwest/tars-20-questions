@@ -1,6 +1,7 @@
 import type { GameMode, GameResult, LogEntry, VoiceModeLevel } from "../types";
-import { useEffect, useState } from "react";
-import { Ear } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Ear, Save } from "lucide-react";
+import { saveGame } from "../gamePersistence";
 import { GuessButton } from "./GuessButton";
 import { QuestionCounter } from "./QuestionCounter";
 import { QuestionInput } from "./QuestionInput";
@@ -22,6 +23,7 @@ type GameBoardProps = {
   newGame: () => void;
   questionsLeft: number;
   result: GameResult | null;
+  sessionId: string | null;
   voiceMode: VoiceModeLevel;
   onToggleVoice: () => void;
   listenTrigger: number;
@@ -43,6 +45,7 @@ export function GameBoard({
   newGame,
   questionsLeft,
   result,
+  sessionId,
   voiceMode,
   onToggleVoice,
   pendingFinalGuess,
@@ -50,8 +53,12 @@ export function GameBoard({
   startYouThinkQuestions
 }: GameBoardProps) {
   const [actualAnswer, setActualAnswer] = useState("");
+  const [footerHeight, setFooterHeight] = useState(0);
   const [showRevealInput, setShowRevealInput] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "failed">("idle");
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const disabled = isLoading || Boolean(result?.gameOver) || questionsLeft <= 0;
   const youThinkStarted = mode === "you-think" && questionsLeft < 20;
   const canSubmitReveal = actualAnswer.trim().length > 0;
@@ -69,6 +76,21 @@ export function GameBoard({
   const handleIncorrectGuess = () => {
     if (!canSubmitReveal) return;
     confirmGuess(false, actualAnswer.trim());
+  };
+
+  const handleManualSave = () => {
+    const ok = saveGame({
+      sessionId,
+      mode,
+      log,
+      questionsLeft,
+      currentQuestion,
+      voiceMode,
+      result,
+      pendingFinalGuess
+    });
+    setSaveStatus(ok ? "saved" : "failed");
+    window.setTimeout(() => setSaveStatus("idle"), 2000);
   };
 
   useEffect(() => {
@@ -97,6 +119,36 @@ export function GameBoard({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [answerYouThink, canAnswerYouThink]);
 
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setFooterHeight(entry.contentRect.height);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  if (result?.gameOver) {
+    return (
+      <div className="game-container relative z-0 mx-auto flex h-dvh w-full max-w-5xl flex-col">
+        <WinScreen
+          currentQuestion={currentQuestion}
+          log={log}
+          mode={mode}
+          pendingFinalGuess={pendingFinalGuess}
+          questionsLeft={questionsLeft}
+          result={result}
+          voiceMode={voiceMode}
+          onPlayAgain={newGame}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="game-container relative z-0 mx-auto flex h-dvh w-full max-w-5xl flex-col">
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-800 bg-void/86 px-4 py-4 backdrop-blur sm:px-6">
@@ -122,6 +174,23 @@ export function GameBoard({
               <Ear className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={handleManualSave}
+              disabled={!sessionId || Boolean(result?.gameOver)}
+              className="grid h-9 w-9 place-items-center rounded border border-slate-700 text-slate-400 transition hover:border-signal hover:text-signal disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-600"
+              title="Save game"
+              aria-label="Save game"
+            >
+              <Save className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {saveStatus !== "idle" && (
+              <span className={`absolute right-0 top-full mt-1 whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.16em] ${saveStatus === "saved" ? "text-signal" : "text-danger"}`}>
+                {saveStatus === "saved" ? "Saved!" : "Save failed"}
+              </span>
+            )}
+          </div>
           <QuestionCounter currentQuestion={currentQuestion} maximumQuestions={MAX_Q} />
         </div>
       </header>
@@ -151,8 +220,12 @@ export function GameBoard({
       )}
 
       {/* Scrollable chat — takes remaining space, footer never pushes it */}
-      <div className="flex-1 overflow-y-auto pb-[calc(13rem+var(--safe-area-inset-bottom))] sm:pb-[calc(7rem+var(--safe-area-inset-bottom))]">
-        <QuestionLog entries={log} isLoading={isLoading} />
+      <div
+        ref={chatScrollRef}
+        className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: `calc(${footerHeight}px + var(--safe-area-inset-bottom) + 1rem)` }}
+      >
+        <QuestionLog entries={log} footerHeight={footerHeight} isLoading={isLoading} scrollContainerRef={chatScrollRef} />
 
         {error && (
           <div className="mx-4 mb-3 rounded border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-rose-100 sm:mx-6">
@@ -162,7 +235,7 @@ export function GameBoard({
       </div>
 
       {!result?.gameOver && (
-        <footer className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-void/94 p-3 pb-safe backdrop-blur sm:p-4">
+        <footer ref={footerRef} className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-void/94 p-3 pb-safe backdrop-blur sm:p-4">
           <div className="mx-auto max-w-5xl">
             {mode === "you-think" ? (
               <div className="mx-auto max-w-3xl">
@@ -272,15 +345,16 @@ export function GameBoard({
       )}
 
       {!result?.gameOver && (
-        <div className="pointer-events-none fixed bottom-[calc(12rem+var(--safe-area-inset-bottom))] left-1/2 z-20 -translate-x-1/2 sm:bottom-24">
+        <div
+          className="pointer-events-none fixed left-1/2 z-20 -translate-x-1/2"
+          style={{ bottom: `calc(${footerHeight}px + var(--safe-area-inset-bottom) + 0.75rem)` }}
+        >
           <div className="flex items-center gap-2 rounded-full border border-signal/30 bg-void/80 px-4 py-1.5 text-[10px] uppercase tracking-[0.18em] text-signal shadow-[0_0_20px_rgba(57,245,196,0.12)] backdrop-blur">
             <span className={`h-1.5 w-1.5 rounded-full ${voiceMode === "off" ? "bg-slate-500" : "animate-pulse bg-signal"}`} />
             {voiceStatus}
           </div>
         </div>
       )}
-
-      {result?.gameOver && <WinScreen log={log} mode={mode} result={result} onPlayAgain={newGame} />}
     </div>
   );
 }
