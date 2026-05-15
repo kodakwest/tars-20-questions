@@ -1,5 +1,5 @@
-import type { GameMode, GameResult, LogEntry } from "../types";
-import { useState } from "react";
+import type { GameMode, GameResult, LogEntry, VoiceModeLevel } from "../types";
+import { useEffect, useState } from "react";
 import { Ear } from "lucide-react";
 import { GuessButton } from "./GuessButton";
 import { QuestionCounter } from "./QuestionCounter";
@@ -22,7 +22,7 @@ type GameBoardProps = {
   newGame: () => void;
   questionsLeft: number;
   result: GameResult | null;
-  voiceMode: boolean;
+  voiceMode: VoiceModeLevel;
   onToggleVoice: () => void;
   listenTrigger: number;
   mode: GameMode;
@@ -51,9 +51,14 @@ export function GameBoard({
 }: GameBoardProps) {
   const [actualAnswer, setActualAnswer] = useState("");
   const [showRevealInput, setShowRevealInput] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const disabled = isLoading || Boolean(result?.gameOver) || questionsLeft <= 0;
   const youThinkStarted = mode === "you-think" && questionsLeft < 20;
   const canSubmitReveal = actualAnswer.trim().length > 0;
+  const currentQuestion = Math.min(MAX_Q, Math.max(1, MAX_Q - questionsLeft + 1));
+  const canAnswerYouThink = mode === "you-think" && youThinkStarted && !isLoading && !result?.gameOver && !pendingFinalGuess;
+  const voiceStatus =
+    voiceMode === "off" ? "muted" : isSpeaking ? "speaking" : isListening ? "listening" : isLoading ? "thinking" : voiceMode;
 
   const handleCorrectGuess = () => {
     setShowRevealInput(false);
@@ -66,8 +71,34 @@ export function GameBoard({
     confirmGuess(false, actualAnswer.trim());
   };
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!canAnswerYouThink) return;
+
+      const activeElement = document.activeElement;
+      const tagName = activeElement?.tagName;
+      if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT") return;
+      if (activeElement instanceof HTMLElement && activeElement.isContentEditable) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "y") {
+        event.preventDefault();
+        answerYouThink("Yes");
+      } else if (key === "k") {
+        event.preventDefault();
+        answerYouThink("Kind Of");
+      } else if (key === "n") {
+        event.preventDefault();
+        answerYouThink("No");
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [answerYouThink, canAnswerYouThink]);
+
   return (
-    <div className="relative z-0 mx-auto flex min-h-screen w-full max-w-5xl flex-col">
+    <div className="game-container relative z-0 mx-auto flex min-h-screen w-full max-w-5xl flex-col">
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-800 bg-void/86 px-4 py-4 backdrop-blur sm:px-6">
         <TarsAvatar speaking={isSpeaking} />
         <div className="flex items-center gap-3">
@@ -80,18 +111,18 @@ export function GameBoard({
               onClick={onToggleVoice}
               disabled={Boolean(result?.gameOver)}
               className={`grid h-9 w-9 place-items-center rounded border transition ${
-                voiceMode
+                voiceMode !== "off"
                   ? "border-signal/60 bg-signal/15 text-signal shadow-[0_0_16px_rgba(57,245,196,0.25)]"
                   : "border-slate-700 text-slate-400 hover:border-signal hover:text-signal"
               }`}
-              title={voiceMode ? "Voice mode on - hands-free" : "Voice mode off"}
-              aria-label={voiceMode ? "Disable voice mode" : "Enable voice mode"}
-              aria-pressed={voiceMode}
+              title={`Voice mode: ${voiceMode}`}
+              aria-label={`Voice mode: ${voiceMode}. Change voice mode`}
+              aria-pressed={voiceMode !== "off"}
             >
               <Ear className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
-          <QuestionCounter questionsLeft={questionsLeft} />
+          <QuestionCounter currentQuestion={currentQuestion} maximumQuestions={MAX_Q} />
         </div>
       </header>
 
@@ -99,7 +130,7 @@ export function GameBoard({
       {log.length > 0 && !result?.gameOver && (
         <div className="sticky top-[73px] z-20 flex items-center gap-3 border-b border-slate-800 bg-void/80 px-4 py-1.5 backdrop-blur sm:px-6">
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-slate-400">
-            <span className="font-semibold text-signal">Q{MAX_Q - questionsLeft + 1}</span>
+            <span className="font-semibold text-signal">Q{currentQuestion}</span>
             <span className="text-slate-600">of {MAX_Q}</span>
           </div>
           <div className="flex h-1 flex-1 gap-[3px] overflow-hidden rounded-full bg-slate-800">
@@ -120,7 +151,7 @@ export function GameBoard({
       )}
 
       {/* Scrollable chat — takes remaining space, footer never pushes it */}
-      <div className="flex-1 overflow-y-auto pb-28">
+      <div className="flex-1 overflow-y-auto pb-[calc(13rem+var(--safe-area-inset-bottom))] sm:pb-[calc(7rem+var(--safe-area-inset-bottom))]">
         <QuestionLog entries={log} isLoading={isLoading} />
 
         {error && (
@@ -131,7 +162,7 @@ export function GameBoard({
       </div>
 
       {/* Fixed footer — always on screen */}
-      <footer className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-void/94 p-3 backdrop-blur sm:p-4">
+      <footer className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-void/94 p-3 pb-safe backdrop-blur sm:p-4">
         <div className="mx-auto max-w-5xl">
         {mode === "you-think" ? (
           <div className="mx-auto max-w-3xl">
@@ -185,30 +216,30 @@ export function GameBoard({
                 )}
               </div>
             ) : youThinkStarted ? (
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
                   onClick={() => answerYouThink("Yes")}
-                  disabled={isLoading || Boolean(result?.gameOver) || pendingFinalGuess}
-                  className="h-12 flex-1 rounded bg-signal font-display font-semibold text-void transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                  disabled={!canAnswerYouThink}
+                  className="min-h-11 flex-1 rounded bg-signal px-4 py-3 font-display font-semibold text-void transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
                 >
                   Yes
                 </button>
                 <button
                   type="button"
-                  onClick={() => answerYouThink("No")}
-                  disabled={isLoading || Boolean(result?.gameOver) || pendingFinalGuess}
-                  className="h-12 flex-1 rounded border border-danger/60 bg-danger/10 font-display font-semibold text-rose-100 transition hover:bg-danger/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                  onClick={() => answerYouThink("Kind Of")}
+                  disabled={!canAnswerYouThink}
+                  className="min-h-11 flex-1 rounded border border-warning/60 bg-warning/10 px-4 py-3 font-display font-semibold text-warning transition hover:bg-warning/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
                 >
-                  No
+                  Kind Of
                 </button>
                 <button
                   type="button"
-                  onClick={() => answerYouThink("Kind of")}
-                  disabled={isLoading || Boolean(result?.gameOver) || pendingFinalGuess}
-                  className="h-12 flex-1 rounded border border-warning/60 bg-warning/10 font-display font-semibold text-warning transition hover:bg-warning/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                  onClick={() => answerYouThink("No")}
+                  disabled={!canAnswerYouThink}
+                  className="min-h-11 flex-1 rounded border border-danger/60 bg-danger/10 px-4 py-3 font-display font-semibold text-rose-100 transition hover:bg-danger/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
                 >
-                  Kind Of
+                  No
                 </button>
               </div>
             ) : (
@@ -225,7 +256,13 @@ export function GameBoard({
         ) : (
           <div className="mx-auto flex max-w-3xl gap-2">
             <div className="min-w-0 flex-1">
-              <QuestionInput disabled={disabled} onAsk={ask} listenTrigger={listenTrigger} voiceMode={voiceMode} />
+              <QuestionInput
+                disabled={disabled}
+                onAsk={ask}
+                listenTrigger={listenTrigger}
+                voiceMode={voiceMode}
+                onListeningChange={setIsListening}
+              />
             </div>
             <GuessButton disabled={isLoading || Boolean(result?.gameOver)} onGuess={guess} />
           </div>
@@ -233,11 +270,11 @@ export function GameBoard({
       </div>
       </footer>
 
-      {voiceMode && !result?.gameOver && (
-        <div className="pointer-events-none fixed bottom-24 left-1/2 z-20 -translate-x-1/2">
+      {!result?.gameOver && (
+        <div className="pointer-events-none fixed bottom-[calc(12rem+var(--safe-area-inset-bottom))] left-1/2 z-20 -translate-x-1/2 sm:bottom-24">
           <div className="flex items-center gap-2 rounded-full border border-signal/30 bg-void/80 px-4 py-1.5 text-[10px] uppercase tracking-[0.18em] text-signal shadow-[0_0_20px_rgba(57,245,196,0.12)] backdrop-blur">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-signal" />
-            voice mode active
+            <span className={`h-1.5 w-1.5 rounded-full ${voiceMode === "off" ? "bg-slate-500" : "animate-pulse bg-signal"}`} />
+            {voiceStatus}
           </div>
         </div>
       )}

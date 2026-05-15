@@ -11,7 +11,7 @@ export type UpsertOptions = {
   validationReport: DatasetValidationReport;
 };
 
-const CHUNK_SIZE = 25;
+const CHUNK_SIZE = 50;
 
 export async function upsertDataset(entities: NormalizedEntity[], options: UpsertOptions) {
   const statements = [
@@ -183,7 +183,9 @@ function executeD1(database: string, remote: boolean, command: string) {
 }
 
 function wrapTransaction(statements: string[]) {
-  return `BEGIN TRANSACTION;\n${statements.join(";\n")};\nCOMMIT;`;
+  // D1 does not support BEGIN TRANSACTION/COMMIT via wrangler CLI.
+  // Each execute call is implicitly atomic. Join statements with semicolons.
+  return `${statements.join(";\n")};`;
 }
 
 function sql(strings: TemplateStringsArray, ...values: Array<string | number | null>) {

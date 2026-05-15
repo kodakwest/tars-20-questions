@@ -10,9 +10,11 @@
 }
 
 :root {
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   color-scheme: dark;
   font-family: Inter, system-ui, sans-serif;
   background: #07090d;
+  overscroll-behavior: none;
 }
 
 * {
@@ -23,6 +25,22 @@ body {
   margin: 0;
   min-width: 320px;
   background: #07090d;
+  overscroll-behavior: none;
+}
+
+#root,
+.game-container {
+  overscroll-behavior: none;
+}
+
+.pb-safe {
+  padding-bottom: calc(0.75rem + var(--safe-area-inset-bottom));
+}
+
+@media (min-width: 640px) {
+  .pb-safe {
+    padding-bottom: calc(1rem + var(--safe-area-inset-bottom));
+  }
 }
 
 button,

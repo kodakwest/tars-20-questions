@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AskResponse, ConfirmGuessResponse, GameMode, GameResult, GuessResponse, LogEntry, NewGameResponse } from "../types";
+import type {
+  AskResponse,
+  ConfirmGuessResponse,
+  GameMode,
+  GameResult,
+  GuessResponse,
+  LogEntry,
+  NewGameResponse,
+  VoiceModeLevel
+} from "../types";
 
 const MAX_QUESTIONS = 20;
 
@@ -46,9 +55,25 @@ function speakText(text: string, voiceName?: string) {
 }
 
 function playAudio(audioBase64?: string) {
-  if (!audioBase64) return;
+  if (!audioBase64) return null;
   const audio = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
   audio.play().catch(() => {});
+  return audio;
+}
+
+function getGameErrorMessage(err: unknown, fallback: string) {
+  const message = err instanceof Error ? err.message : "";
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("contradiction")) {
+    return "I hit a contradiction. Let me recover.";
+  }
+
+  if (normalized.includes("missing entity")) {
+    return message || fallback;
+  }
+
+  return message || fallback;
 }
 
 export function useGame() {
@@ -60,21 +85,49 @@ export function useGame() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GameResult | null>(null);
-  const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceMode, setVoiceMode] = useState<VoiceModeLevel>("minimal");
   const [listenTrigger, setListenTrigger] = useState(0);
   const [mode, setMode] = useState<GameMode>("ai-thinks");
   const [voiceName, setVoiceName] = useState<string | undefined>(undefined);
   const [pendingFinalGuess, setPendingFinalGuess] = useState(false);
   const latestAudio = useRef<string | undefined>(undefined);
+  const currentAudio = useRef<HTMLAudioElement | null>(null);
+  const speakingTimeout = useRef<number | null>(null);
 
-  const onToggleVoice = useCallback(() => {
-    setVoiceMode((prev) => !prev);
+  const cancelSpeech = useCallback(() => {
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {}
+
+    if (speakingTimeout.current !== null) {
+      window.clearTimeout(speakingTimeout.current);
+      speakingTimeout.current = null;
+    }
+
+    if (currentAudio.current) {
+      currentAudio.current.pause();
+      currentAudio.current.removeAttribute("src");
+      currentAudio.current.load();
+      currentAudio.current = null;
+    }
+
+    setIsSpeaking(false);
   }, []);
 
-  // Voice mode continuous loop: when TARS finishes speaking, trigger next listen
+  const onToggleVoice = useCallback(() => {
+    setVoiceMode((prev) => {
+      const next = prev === "off" ? "minimal" : prev === "minimal" ? "full" : "off";
+      if (next === "off") {
+        cancelSpeech();
+      }
+      return next;
+    });
+  }, [cancelSpeech]);
+
+  // Full voice mode loop: when TARS finishes speaking, trigger next listen.
   const wasSpeaking = useRef(false);
   useEffect(() => {
-    if (!voiceMode) return;
+    if (voiceMode !== "full") return;
     if (wasSpeaking.current && !isSpeaking && !isLoading && !result?.gameOver) {
       const t = setTimeout(() => setListenTrigger((n) => n + 1), 1000);
       return () => clearTimeout(t);
@@ -83,26 +136,48 @@ export function useGame() {
   }, [isSpeaking, voiceMode, isLoading, result?.gameOver]);
 
   const speak = useCallback((audioBase64?: string, text?: string) => {
-    latestAudio.current = audioBase64 || text;
+    cancelSpeech();
+    latestAudio.current = audioBase64;
+    if (voiceMode === "off") return;
+
     const selectedVoice = voiceName;
     if (audioBase64) {
       setIsSpeaking(true);
       const audio = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
-      audio.addEventListener("ended", () => setIsSpeaking(false), { once: true });
+      currentAudio.current = audio;
+      audio.addEventListener(
+        "ended",
+        () => {
+          if (currentAudio.current === audio) {
+            currentAudio.current = null;
+          }
+          setIsSpeaking(false);
+        },
+        { once: true }
+      );
       audio.addEventListener("error", () => {
         setIsSpeaking(false);
+        if (currentAudio.current === audio) {
+          currentAudio.current = null;
+        }
         if (text) speakText(text, selectedVoice);
       }, { once: true });
       audio.play().catch(() => {
         setIsSpeaking(false);
+        if (currentAudio.current === audio) {
+          currentAudio.current = null;
+        }
         if (text) speakText(text, selectedVoice);
       });
     } else if (text) {
       setIsSpeaking(true);
       speakText(text, selectedVoice);
-      setTimeout(() => setIsSpeaking(false), text.length * 60);
+      speakingTimeout.current = window.setTimeout(() => {
+        speakingTimeout.current = null;
+        setIsSpeaking(false);
+      }, text.length * 60);
     }
-  }, [voiceName]);
+  }, [cancelSpeech, voiceMode, voiceName]);
 
   const newGame = useCallback(async (nextMode = mode) => {
     setIsLoading(true);
@@ -135,6 +210,7 @@ export function useGame() {
   const ask = useCallback(
     async (question: string) => {
       if (!sessionId || !question.trim() || result?.gameOver) return;
+      cancelSpeech();
       const userEntry: LogEntry = { id: id(), speaker: "user", text: question.trim() };
       setLog((entries) => [...entries, userEntry]);
       setIsLoading(true);
@@ -142,6 +218,9 @@ export function useGame() {
 
       try {
         const data = await postJson<AskResponse>("/api/ask", { question: question.trim(), sessionId });
+        if (data.contradiction) {
+          setError("I hit a contradiction. Let me recover.");
+        }
         setQuestionsLeft(data.questionsLeft);
         setLog((entries) => [
           ...entries,
@@ -157,7 +236,7 @@ export function useGame() {
           });
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "TARS misplaced the answer in a black hole.");
+        setError(getGameErrorMessage(err, "TARS misplaced the answer in a black hole."));
       } finally {
         setIsLoading(false);
       }
@@ -188,12 +267,16 @@ export function useGame() {
   const answerYouThink = useCallback(
     async (answer: string) => {
       if (!sessionId || result?.gameOver || mode !== "you-think") return;
+      cancelSpeech();
       setLog((entries) => [...entries, { id: id(), speaker: "user", text: answer }]);
       setIsLoading(true);
       setError(null);
 
       try {
         const data = await postJson<AskResponse>("/api/ask", { answer: answer.toLowerCase(), sessionId });
+        if (data.contradiction) {
+          setError("I hit a contradiction. Let me recover.");
+        }
         setQuestionsLeft(data.questionsLeft);
         setLog((entries) => [
           ...entries,
@@ -210,7 +293,7 @@ export function useGame() {
           });
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "TARS misfiled your answer. Very human of it.");
+        setError(getGameErrorMessage(err, "TARS misfiled your answer. Very human of it."));
       } finally {
         setIsLoading(false);
       }
@@ -221,6 +304,7 @@ export function useGame() {
   const confirmGuess = useCallback(
     async (correct: boolean, actualAnswer?: string) => {
       if (!sessionId || result?.gameOver || mode !== "you-think" || !pendingFinalGuess) return;
+      cancelSpeech();
       setIsLoading(true);
       setError(null);
 
@@ -244,7 +328,7 @@ export function useGame() {
           message: data.message
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "TARS failed to record the verdict.");
+        setError(getGameErrorMessage(err, "TARS failed to record the verdict."));
       } finally {
         setIsLoading(false);
       }
@@ -255,6 +339,7 @@ export function useGame() {
   const guess = useCallback(
     async (guessText: string) => {
       if (!sessionId || !guessText.trim() || result?.gameOver) return;
+      cancelSpeech();
       setLog((entries) => [...entries, { id: id(), speaker: "user", text: `Guess: ${guessText.trim()}` }]);
       setIsLoading(true);
       setError(null);
@@ -270,7 +355,7 @@ export function useGame() {
         speak(data.audioBase64, message);
         setResult({ gameOver: true, won: data.correct, character: data.character, message });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Guess processing failed. Bold strategy.");
+        setError(getGameErrorMessage(err, "Guess processing failed. Bold strategy."));
       } finally {
         setIsLoading(false);
       }
@@ -279,8 +364,10 @@ export function useGame() {
   );
 
   const replayLastAudio = useCallback(() => {
-    playAudio(latestAudio.current);
-  }, []);
+    cancelSpeech();
+    const audio = playAudio(latestAudio.current);
+    currentAudio.current = audio;
+  }, [cancelSpeech]);
 
   return useMemo(
     () => ({
@@ -289,6 +376,7 @@ export function useGame() {
       error,
       guess,
       confirmGuess,
+      cancelSpeech,
       isLoading,
       isSpeaking,
       listenTrigger,
@@ -308,6 +396,6 @@ export function useGame() {
       voiceMode,
       voiceName
     }),
-    [answerYouThink, ask, error, guess, confirmGuess, isLoading, isSpeaking, listenTrigger, log, mode, newGame, onToggleVoice, pendingFinalGuess, questionsLeft, replayLastAudio, result, sessionId, start, startYouThinkQuestions, started, voiceMode, voiceName]
+    [answerYouThink, ask, error, guess, confirmGuess, cancelSpeech, isLoading, isSpeaking, listenTrigger, log, mode, newGame, onToggleVoice, pendingFinalGuess, questionsLeft, replayLastAudio, result, sessionId, start, startYouThinkQuestions, started, voiceMode, voiceName]
   );
 }

@@ -2,6 +2,8 @@ export type Speaker = "user" | "tars";
 
 export type GameMode = "ai-thinks" | "you-think";
 
+export type VoiceModeLevel = "off" | "minimal" | "full";
+
 export type LogEntry = {
   id: string;
   speaker: Speaker;
@@ -23,6 +25,7 @@ export type AskResponse = {
   gameOver: boolean;
   won: boolean;
   character?: string;
+  contradiction?: boolean | string;
   pendingGuessConfirmation?: boolean;
 };
 

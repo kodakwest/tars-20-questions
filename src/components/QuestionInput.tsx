@@ -1,11 +1,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Mic, SendHorizontal } from "lucide-react";
+import type { VoiceModeLevel } from "../types";
 
 type QuestionInputProps = {
   disabled: boolean;
   onAsk: (question: string) => void;
   listenTrigger: number;
-  voiceMode: boolean;
+  voiceMode: VoiceModeLevel;
+  onListeningChange?: (listening: boolean) => void;
 };
 
 type SpeechRecognitionConstructor = new () => AppSpeechRecognition;
@@ -49,7 +51,7 @@ function getSpeechRecognitionConstructor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition;
 }
 
-export function QuestionInput({ disabled, onAsk, listenTrigger, voiceMode }: QuestionInputProps) {
+export function QuestionInput({ disabled, onAsk, listenTrigger, voiceMode, onListeningChange }: QuestionInputProps) {
   const [question, setQuestion] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -69,17 +71,21 @@ export function QuestionInput({ disabled, onAsk, listenTrigger, voiceMode }: Que
     };
   }, []);
 
-  // Auto-listen when listenTrigger changes (voice mode continuous loop)
   useEffect(() => {
-    if (!voiceMode || !speechSupported || disabled) return;
+    onListeningChange?.(isListening);
+  }, [isListening, onListeningChange]);
+
+  // Auto-listen when listenTrigger changes (full voice mode continuous loop)
+  useEffect(() => {
+    if (voiceMode !== "full" || !speechSupported || disabled) return;
     const timeout = setTimeout(() => startListening(), 800);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listenTrigger, voiceMode]);
 
-  // Auto-start listening when voice mode is first enabled
+  // Auto-start listening only when full voice mode is enabled.
   useEffect(() => {
-    if (!voiceMode || !speechSupported || disabled) return;
+    if (voiceMode !== "full" || !speechSupported || disabled) return;
     const timeout = setTimeout(() => startListening(), 400);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,6 +104,7 @@ export function QuestionInput({ disabled, onAsk, listenTrigger, voiceMode }: Que
       setIsListening(false);
       stopCurrentRecognition();
       recognitionRef.current = null;
+      showSpeechError("I didn't catch that. Could you say it again?");
     }, 8000);
     return () => window.clearTimeout(timeout);
   }, [isListening]);
@@ -187,6 +194,8 @@ export function QuestionInput({ disabled, onAsk, listenTrigger, voiceMode }: Que
       if (event.error === "aborted") return;
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         showSpeechError("Microphone access denied. Use the keyboard instead.");
+      } else if (event.error === "no-speech" || event.error === "audio-capture" || event.error === "network") {
+        showSpeechError("I didn't catch that. Could you say it again?");
       }
     };
 
