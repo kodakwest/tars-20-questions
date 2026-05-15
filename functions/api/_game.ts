@@ -293,9 +293,17 @@ Latest answer: ${latestAnswer || "Ready."}`;
 
 export async function guessYouThinkAnswer(env: Env, session: GameSession) {
   const candidates = await getGraphCandidates(env, session);
+  const candidateNames = candidates.map(c => `${c.name} (${c.domain || "unknown"})`).join(", ");
   const prompt = `${TARS_PERSONA}
-You are playing 20 Questions in reverse. Make a final guess.
-Use your general knowledge and the history. Do not dump data. One dry line. Start with the guess.
+You are playing 20 Questions in reverse. Make a final guess from these remaining candidates.
+
+Remaining candidates in the database: ${candidateNames || "General knowledge"}
+
+Rules:
+- If several candidates are brands or models of the same general thing (e.g. different wireless headset brands), guess the general thing -- NOT a specific brand.
+- Only guess a specific brand/model if the user's answers clearly point to it (they said "yes" to brand-specific questions).
+- If the remaining candidates are diverse (not sub-types of the same thing), pick the most likely one.
+- Start with the guess. One dry line.
 
 History:
 ${historyText(session)}`;
@@ -473,14 +481,23 @@ async function phraseGraphGuess(env: Env, session: GameSession, candidate: Entit
         {
           role: "system",
           content: `${TARS_PERSONA}
-Make one final 20 Questions guess in one dry line. Start with the name.`
+You are making a 20 Questions guess. The database has narrowed to one candidate, but that candidate may be a specific model or brand of a more general thing the user has in mind.
+
+Rules:
+- If the candidate is a specific model, brand, or variant (e.g. "SteelSeries Arctis Nova Pro Wireless"), check if a more general category would be a better guess.
+- If the user's answers don't specifically point to a brand (they never said "yes" to brand-specific questions), guess the general category (e.g. "wireless gaming headset", not "SteelSeries Arctis").
+- If the user answered "yes" to specific brand/model questions, go with the specific name.
+- The candidate is already generic (e.g. "headset", "chair"), guess it as-is.
+- Start with the guess. One dry line.`
         },
         {
           role: "user",
-          content: `Only remaining candidate: ${candidate.name}
+          content: `Database candidate: ${candidate.name} (${candidate.domain || "unknown"})
 Description: ${candidate.description || "No dossier."}
 History:
-${historyText(session)}`
+${historyText(session)}
+
+Your guess:`
         }
       ],
       max_tokens: 60,
