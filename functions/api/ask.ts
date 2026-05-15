@@ -47,10 +47,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     let answer: string;
     if (!isStart && session.questionsLeft <= 0) {
-      answer = await guessYouThinkAnswer(env, session);
-      session.finalGuess = extractFinalGuess(answer);
-      session.gameOver = true;
-      await logGame(env, session);
+      if (!session.finalGuess) {
+        answer = await guessYouThinkAnswer(env, session);
+        session.finalGuess = extractFinalGuess(answer);
+      } else {
+        answer = `Final guess: ${session.finalGuess}`;
+      }
     } else {
       session.questionsLeft -= 1;
       const graphQuestion = await askYouThinkQuestion(env, session, isStart ? undefined : userAnswer);

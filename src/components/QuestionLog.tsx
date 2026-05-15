@@ -11,11 +11,11 @@ export function QuestionLog({ entries, isLoading }: QuestionLogProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    endRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
   }, [entries, isLoading]);
 
   return (
-    <section className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6" aria-label="Question history">
+    <section className="min-h-0 flex-1 px-4 py-5 sm:px-6" aria-label="Question history">
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
         {entries.map((entry) =>
           entry.speaker === "tars" ? (
