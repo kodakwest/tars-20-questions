@@ -1,0 +1,18 @@
+name = "tars-20-questions"
+compatibility_date = "2026-05-14"
+pages_build_output_dir = "dist"
+
+ai = { binding = "AI" }
+
+[[kv_namespaces]]
+binding = "tars_sessions"
+id = "92b0febd58da4393ae1bb78e1c9bb06e"
+
+[[d1_databases]]
+binding = "GAMES_DB"
+database_name = "tars-games"
+database_id = "8be82744-9673-4c99-9b54-52f62943ed6f"
+
+[vars]
+LLM_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct"
+TTS_MODEL = "@cf/deepgram/aura-2-en"

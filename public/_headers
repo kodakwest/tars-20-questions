@@ -1,0 +1,8 @@
+# Cache busting — prevent edge caching of HTML
+/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+
+# Static assets can still be cached (they have hashed filenames)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
