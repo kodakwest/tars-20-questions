@@ -1,0 +1,144 @@
+---
+title: TARS 20 Questions
+type: knowledge-base
+tags: [game, ai, 20-questions, graph-seed]
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TARS 20 Questions - Knowledge Base</title>
+    <style>
+        :root {
+            --bg-color: #0e0f0d;
+            --accent-color: #22d3ee;
+            --text-color: #f3f4f6;
+            --muted-text: #9ca3af;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
+            max-width: 800px;
+            margin: auto;
+        }
+        h1, h2, h3 {
+            color: var(--accent-color);
+        }
+        a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .section {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 1rem;
+        }
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+        code {
+            background-color: #1f2937;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--accent-color);
+        }
+        pre {
+            background-color: #1f2937;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: var(--text-color);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>TARS 20 Questions - Knowledge Base</h1>
+
+    <div class="section" id="overview">
+        <h2>Overview</h2>
+        <p>TARS 20 Questions is an interactive 20 Questions game where you can play against an AI. The game features two modes:</p>
+        <ul>
+            <li><strong>AI Guesses:</strong> You think of an object, and the AI tries to guess it by asking you yes/no questions.</li>
+            <li><strong>You Guess:</strong> The AI chooses an object, and you try to guess what it is by asking yes/no questions.</li>
+        </ul>
+    </div>
+
+    <div class="section" id="architecture">
+        <h2>Architecture</h2>
+        <p>The system is built with a modern web stack, utilizing a lightweight frontend and an AI-powered backend for gameplay logic.</p>
+        <!-- Architecture SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="100%" height="auto">
+            <rect width="100%" height="100%" fill="#0e0f0d" />
+            <rect x="50" y="150" width="200" height="100" rx="10" fill="#1f2937" stroke="#22d3ee" stroke-width="2" />
+            <text x="150" y="200" fill="#f3f4f6" text-anchor="middle" font-family="sans-serif" font-weight="bold">Frontend (Client)</text>
+
+            <rect x="550" y="150" width="200" height="100" rx="10" fill="#1f2937" stroke="#22d3ee" stroke-width="2" />
+            <text x="650" y="200" fill="#f3f4f6" text-anchor="middle" font-family="sans-serif" font-weight="bold">AI Backend</text>
+
+            <path d="M 260 200 L 530 200" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrow)" />
+            <path d="M 530 220 L 260 220" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrow)" />
+
+            <text x="395" y="190" fill="#9ca3af" text-anchor="middle" font-family="sans-serif" font-size="14">API Requests (Guesses/Answers)</text>
+            <text x="395" y="240" fill="#9ca3af" text-anchor="middle" font-family="sans-serif" font-size="14">AI Responses (Questions/Answers)</text>
+
+            <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee" />
+                </marker>
+            </defs>
+        </svg>
+    </div>
+
+    <div class="section" id="runtime">
+        <h2>Runtime</h2>
+        <p>The application runs on a scalable infrastructure. The client is a web application accessible via modern browsers, while the AI backend is deployed on a cloud platform (e.g., Cloudflare Workers) to ensure low latency and high availability.</p>
+    </div>
+
+    <div class="section" id="features">
+        <h2>Features</h2>
+        <ul>
+            <li>Two interactive game modes.</li>
+            <li>Real-time AI responses.</li>
+            <li>Responsive, dark-themed UI with cyan accents.</li>
+            <li>Progressive Web App (PWA) capabilities.</li>
+        </ul>
+    </div>
+
+    <div class="section" id="commands">
+        <h2>Commands</h2>
+        <p>Useful commands for development and maintenance:</p>
+        <ul>
+            <li><code>npm run dev</code> - Start the local development server.</li>
+            <li><code>npm run build</code> - Build the client for production.</li>
+            <li><code>npm run deploy</code> - Deploy the application to the hosting environment.</li>
+            <li><code>npm run test</code> - Execute the test suite.</li>
+        </ul>
+    </div>
+
+    <div class="section" id="patches">
+        <h2>Patches</h2>
+        <p>Recent updates and patches to the system:</p>
+        <ul>
+            <li><strong>v1.1.0:</strong> Improved AI guessing accuracy and response time.</li>
+            <li><strong>v1.0.5:</strong> Fixed UI alignment issues on mobile devices.</li>
+            <li><strong>v1.0.0:</strong> Initial release of TARS 20 Questions.</li>
+        </ul>
+    </div>
+
+</body>
+</html>
