@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TARS Jeopardy Mood Board</title>
+  <style>
+    /* Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@500;600;700&display=swap');
+
+    :root {
+      /* TARS 20 Questions Existing Theme */
+      --void: #07090d;
+      --hull: #101722;
+      --signal: #39f5c4;
+      --warning: #ffb86b;
+      --danger: #ff5d73;
+
+      --text-muted: #8b9bb4;
+      --text-light: #e2e8f0;
+
+      --font-display: 'Rajdhani', 'Inter', system-ui, sans-serif;
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'ui-monospace', monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 2rem;
+      background-color: var(--void);
+      color: var(--text-light);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(57, 245, 196, 0.2);
+      padding-bottom: 1rem;
+    }
+
+    .branding {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--signal);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--signal);
+      clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%);
+    }
+
+    h2 {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      color: var(--signal);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.5rem;
+      border-left: 4px solid var(--signal);
+      padding-left: 0.75rem;
+    }
+
+    section {
+      background: var(--hull);
+      border: 1px solid rgba(139, 155, 180, 0.1);
+      padding: 2rem;
+      border-radius: 4px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    /* Colors */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .color-swatch {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .color-box {
+      height: 90px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+    }
+
+    .color-info {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    .color-name { font-weight: bold; color: var(--text-light); margin-bottom: 0.25rem; }
+    .color-hex { color: var(--text-muted); }
+
+    /* Typography */
+    .type-examples {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+    .type-box {
+      border-bottom: 1px dashed rgba(255,255,255,0.1);
+      padding-bottom: 1.5rem;
+    }
+    .type-box:last-child { border-bottom: none; }
+    .type-label {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* Components */
+    .components-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2.5rem;
+    }
+
+    .score-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--void);
+      padding: 1rem 1.5rem;
+      border: 1px solid var(--signal);
+      font-family: var(--font-mono);
+      color: var(--signal);
+      box-shadow: inset 0 0 15px rgba(57, 245, 196, 0.1);
+      border-radius: 2px;
+    }
+    .score-val { font-size: 1.75rem; font-weight: bold; }
+    .player-name { font-size: 1.1rem; letter-spacing: 0.1em; color: var(--text-light); }
+
+    .modal-mockup {
+      background: var(--void);
+      border: 1px solid var(--warning);
+      padding: 3rem 2rem;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 0 30px rgba(255, 184, 107, 0.1);
+      border-radius: 2px;
+    }
+    .modal-mockup::before {
+      content: 'ACTIVE CLUE';
+      position: absolute;
+      top: -12px;
+      left: 1.5rem;
+      background: var(--warning);
+      color: var(--void);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+    }
+    .clue-text {
+      font-family: var(--font-display);
+      font-size: 2.25rem;
+      font-weight: 600;
+      color: var(--text-light);
+      margin: 1.5rem 0 2.5rem;
+      text-transform: uppercase;
+      line-height: 1.2;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+    .btn-tactical {
+      background: transparent;
+      border: 1px solid var(--warning);
+      color: var(--warning);
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: bold;
+      padding: 0.75rem 2rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      transition: all 0.2s;
+    }
+    .btn-tactical:hover {
+      background: var(--warning);
+      color: var(--void);
+      box-shadow: 0 0 15px rgba(255, 184, 107, 0.3);
+    }
+
+    .alert-box {
+      padding: 1rem 1.25rem;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .alert-danger {
+      background: rgba(255, 93, 115, 0.05);
+      border: 1px solid var(--danger);
+      box-shadow: inset 0 0 10px rgba(255, 93, 115, 0.1);
+    }
+    .alert-success {
+      background: rgba(57, 245, 196, 0.05);
+      border: 1px solid var(--signal);
+      box-shadow: inset 0 0 10px rgba(57, 245, 196, 0.1);
+    }
+
+    /* Jeopardy Board */
+    .jeopardy-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      background: var(--hull);
+      padding: 6px;
+      border: 1px solid rgba(57, 245, 196, 0.3);
+      border-radius: 4px;
+    }
+    .cat-header {
+      background: var(--void);
+      color: var(--signal);
+      font-family: var(--font-display);
+      font-weight: 700;
+      text-align: center;
+      padding: 1.5rem 1rem;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--signal);
+      font-size: 1.4rem;
+      letter-spacing: 0.05em;
+      box-shadow: inset 0 -10px 20px rgba(57, 245, 196, 0.05);
+    }
+    .clue-cell {
+      background: var(--void);
+      color: var(--signal);
+      font-family: var(--font-mono);
+      font-size: 1.75rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 2.5rem 1rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .clue-cell:hover {
+      background: rgba(57, 245, 196, 0.03);
+      border-color: var(--signal);
+      box-shadow: inset 0 0 20px rgba(57, 245, 196, 0.15);
+      text-shadow: 0 0 10px rgba(57, 245, 196, 0.5);
+    }
+    .clue-cell.disabled {
+      color: var(--text-muted);
+      opacity: 0.2;
+      pointer-events: none;
+      text-decoration: line-through;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="branding">
+      <div class="logo">
+        <div class="logo-icon"></div>
+        TARS Jeopardy
+      </div>
+    </div>
+    <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted); text-align: right; line-height: 1.4;">
+      SYS_READY<br>
+      <span style="color: var(--signal);">ENV_TACTICAL</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. Tactical Color Palette</h2>
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="color-box" style="background: var(--void);"></div>
+        <div class="color-info">
+          <div class="color-name">Void (Base)</div>
+          <div class="color-hex">#07090d</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: var(--hull);"></div>
+        <div class="color-info">
+          <div class="color-name">Hull (Surface)</div>
+          <div class="color-hex">#101722</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: var(--signal);"></div>
+        <div class="color-info">
+          <div class="color-name">Signal (Accent)</div>
+          <div class="color-hex">#39f5c4</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: var(--warning);"></div>
+        <div class="color-info">
+          <div class="color-name">Warning (Focus)</div>
+          <div class="color-hex">#ffb86b</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: var(--danger);"></div>
+        <div class="color-info">
+          <div class="color-name">Danger (Alert)</div>
+          <div class="color-hex">#ff5d73</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Typography Systems</h2>
+    <div class="type-examples">
+      <div class="type-box">
+        <div class="type-label">Headings & Category Titles (Rajdhani)</div>
+        <div style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700; color: var(--text-light); line-height: 1.1; text-transform: uppercase;">
+          Artificial Intelligence
+        </div>
+      </div>
+      <div class="type-box">
+        <div class="type-label">Clue Text / Prompts (Rajdhani)</div>
+        <div style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 500; color: var(--text-light); line-height: 1.3;">
+          THIS EX-MARINE ROBOT ASSISTS COOPER ON THE ENDURANCE.
+        </div>
+      </div>
+      <div class="type-box">
+        <div class="type-label">Values, Scores & UI Data (JetBrains Mono)</div>
+        <div style="font-family: var(--font-mono); font-size: 1.25rem; color: var(--signal);">
+          $ 1,000  |  T-MINUS 00:15  |  SYS_OK
+        </div>
+      </div>
+      <div class="type-box">
+        <div class="type-label">Body Copy & Instructions (Inter)</div>
+        <div style="font-family: var(--font-body); font-size: 1.05rem; color: var(--text-muted); max-width: 600px; line-height: 1.6;">
+          Select a category and value from the tactical grid. You will have 15 seconds to provide the correct response in the form of a question. Use voice comms or manual input.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. UI Component Mockups</h2>
+    <div class="components-grid">
+      <div>
+        <div class="type-label">Score Bar</div>
+        <div class="score-bar" style="margin-bottom: 2.5rem;">
+          <div class="player-name">PLAYER_01</div>
+          <div class="score-val">$ 4,200</div>
+        </div>
+
+        <div class="type-label">Action Modal (Clue Focus)</div>
+        <div class="modal-mockup">
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--warning); letter-spacing: 0.1em; margin-bottom: 0.5rem;">CATEGORY: A.I. SYSTEMS</div>
+          <div class="clue-text">
+            I am the former marine robot who helps Cooper on the Endurance.
+          </div>
+          <button class="btn-tactical">Provide Response</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="type-label">System Alerts</div>
+        <div class="alert-box alert-danger">
+          <div style="color: var(--danger); font-family: var(--font-mono); font-weight: bold; font-size: 1.2rem;">[!]</div>
+          <div style="color: var(--danger); font-family: var(--font-mono); font-size: 0.9rem; letter-spacing: 0.05em;">ERR: FORMAT INCORRECT. RESPONSE MUST BE A QUESTION.</div>
+        </div>
+
+        <div class="alert-box alert-success">
+          <div style="color: var(--signal); font-family: var(--font-mono); font-weight: bold; font-size: 1.2rem;">[>]</div>
+          <div style="color: var(--signal); font-family: var(--font-mono); font-size: 0.9rem; letter-spacing: 0.05em;">SYS_OK: CORRECT. +$800 CREDIT ADDED TO BALANCE.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. Tactical Grid (3x3 Sample)</h2>
+    <div class="jeopardy-board">
+      <div class="cat-header">A.I. Systems</div>
+      <div class="cat-header">Space Travel</div>
+      <div class="cat-header">Cinema History</div>
+
+      <div class="clue-cell">$ 200</div>
+      <div class="clue-cell">$ 200</div>
+      <div class="clue-cell disabled">$ 200</div>
+
+      <div class="clue-cell">$ 400</div>
+      <div class="clue-cell disabled">$ 400</div>
+      <div class="clue-cell">$ 400</div>
+
+      <div class="clue-cell disabled">$ 600</div>
+      <div class="clue-cell">$ 600</div>
+      <div class="clue-cell">$ 600</div>
+    </div>
+  </section>
+
+</body>
+</html>
